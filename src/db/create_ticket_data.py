@@ -484,8 +484,6 @@ def process_ticket_data():
 
     print('Finished!')
 
-
-
 def main():
     create_db()
     create_raw_data()
@@ -500,5 +498,4 @@ def main():
 
 
 if __name__== '__main__':
-    print("NO")
     main()
