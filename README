@@ -1,0 +1,154 @@
+# San Francisco Parking Ticket Analysis
+Project Organization
+---------
+.
+├── README                        <-The top level README
+├── data
+│   ├── processed                 <-Processed Data used for final analysis
+│   └── raw                       <-Raw Data from multiple 3rd party source
+|
+├── notebooks                     <-Jupyter notebooks. Naming convention is in numbered ordering.
+|
+├── reports                      <-Generated analysis
+│   └── figures                  <-All Figures used in README or generated from analysis
+|
+|
+└── src                         <- Source code for use in project
+    ├── analysis                <-Scripts to run analysis
+    │   ├── analysis_initial.py
+    │   ├── analysis_park.py
+    ├── data                    <-Scripts to generate data
+    │   ├── create_data.py
+    ├── explore                 <-Scripts to generate exploratory images and charts
+    │   ├── explore_data.py
+    ├── extras                  <-Extra Project Features
+    │   ├── extras.py
+    └── __init__.py             <- makes src a Python Module
+
+
+
+## Goal
+In order to get a residential parking permit in San Francisco, you must change your address on your both your license and vehicle registration. With a transient person such as myself switching locations every year, a broken online system for changing your address, and deadlines for each permit that change at random schedules (There is hardly a discounted rate for a permit that expires in one month), I often have found myself trying to play the odds on where I could park my car and for how long. As you'll see in the exploration notebook, I have been very unsuccessful in these attempts. Throughout all of these failed attempts I have developed one main theory that I would like to test. The hypothesis is that streets with higher volume are less susceptible to residential overtime tickets, a product of traffic enforcement officers fearing the very traffic they patrol. While exploring that main theory, I also looked at a few other theories that I generated while exploring the data.
+
+## Data Collection
+I filed a public data request from San Francisco asking for a years worth of parking ticket data. They gave me over twice as much as I had asked for, almost 3 million tickets in total. They also provided a text file of all block limits and street intersections, as well as a decoder for what issueing agencies ID's were.
+
+In order to pair this with the street volume, I would need a geospatial conversion. I used a list of over 200,000 reverse geocoded San Francisco addresses from https://openaddresses.io/. Any addresses I could not generate from this table, used the OpenStreetMap API to look up.
+
+I also found a planning neighborhood zoning map so I could associate each address with a district.
+
+For traffic volume, I went to the San Francisco County Transportation Authority. They are the keepers of a model called SFCHAMP, the official travel forecasting tool for San Francisco.You can read more about the forecasting model[here](https://www.sfcta.org/modeling-and-travel-forecasting). They were able to provide me a historical travel pattern estimate from this model, in the form of a shapefile.
+
+In order to avoid any bias when comparing the number of tickets per street I found a street parking availability census, also in the form of a shapefile. [link] (http://sfpark.org/resources/parking-census-data-context-and-map-april-2014/)
+
+While I was at it, I found the street cleaning routes from openDataSF.com, also in shapefile form.[link] (https://data.sfgov.org/City-Infrastructure/Historical-Street-Sweeper-Scheduled-Routes/u2ac-gv9v)
+
+
+## Data Cleaning Process
+Because the processing of this data take a considerable amount of time, the results of the data cleaning were stored in a SQLite database. The finished Schema is shown below.
+![Sql Schema] (reports/figures/sqldb.png)
+
+
+The overall cleaning workflow got a little more complex than anticipated, and follows the diagram below.
+(show diagram)
+
+In order to get a relational database that could pair a ticket with a street id, the first task was to associate an address with every ticket. The ticket data does not include the street suffix, which will cause more issues later on, but for now that means we would like to strip out just the street name from the address data so we have something to join on. Then we can use this table to query against what doesn't match. We'll then find what doesn't match, and we'll look for "similar" addresses. These will be addresses that share a street name, are on the same block(address rounded to 100 ), and block side (Odd or even).
+
+Another entry error will be when the officer just writes down the cross streets, and not a full address. I used the street block limits table to create a dataframe of the addresses for all intersections, and was able to use this table to associate an address with these entries.
+
+Any address that was not able to create a match after these steps was appended to a list of missing addresses, We used the block limits table to estimate what the suffix would be, and then searched using OpenStreetMap. After we had our full list of addresses with coordinates, I used some shapely functions to associate each one with a neighborhood on the map. This will be used when processing the ticket data.
+
+Now that we have the address data, we will loop through all tickets and associate them with an address. We will process them in chunks of 500000 records, and filter only on tickets we can associate an address with.However, the aspect of not including the street suffix now poses a problem.  Some street names can have multiple records for the same number because they have two alternatives of suffixes (IE 01ST STREET and 01ST AVENUE). This is an issue as there really wasn't any indicators as to which one it was, so a few general assumptions had to be made based on domain knowledge.
+
+We know that no avenue after 15th is residential permit(unless its numbered 2200 - 2600 which can go up to 21st), so we can assume those are 'ST' Anything else over 21st will be assumed ST. For the rest, we'll query all the neighborhoods that specific ticket issuer was at during that day in time(for addresses we know, IE single valid address). We'll then sort the list of potential addresses based on how close the issueing time was to the ticket we are trying to look up. We then use the sorted list to re-index the potential addresses based on the associated neighborhoods. We'll choose the closest. If there's no matches (IE they didn't show up in either neighborhood, we'll choose one randomly based on how many addresses are at each street)
+
+Once we had processed ticket data, we need to find a way to connect it to the street volume data. The street volume data does not include address limits, but it does include the street name. The street cleaning file does have the address limits. So what I did was join the two shapefiles together, and filter only on matches that have the same street name. The rest will have to use a closest distance function. Now we can merge our street cleaning data using our street and number. Then we can associate it with the street volume id that was This will allow us to associate every ticket with a valid address to a valid street volume data point. A street id was created on the geodataframe, and it was then saved as a different file so we can save the identification that matches our street index and use it later properly. The street volume data points were also stored in the SQLite Database.
+
+Once these tables were created, we now had a relational database that can be used to answer our main problem.
+
+## Initial Exploration Findings
+(few interesting initial)
+First I did some exploratory analysis just to look for some interesting takeaways in the data, as well as ensure the data was processed properly and no major holes existed. There are quite a few graphs generated in the notebooks, but I'll highlight a few I found interesting.
+
+Ticket Type by Neighborhood
+
+Ticket Heat map
+
+My Tickets Map (More than 98%)
+
+Some other guy tickets map
+
+Street Volume and Ticket Plot
+
+Ticket data by Meter
+
+
+Testing The theory
+
+
+Question 1:
+Streets with higher volumes of traffic get less tickets.
+
+Now for the main event. Let's use our finished sql database to associate the total number of residential overtime tickets associated with each street link. Then we can see if there is any significant differences between streets that have higher volumes. In order to make a 'fair' comparison by street, we'll convert the total tickets into total tickets per linear mile per year, using the distance of the street link.
+We'll create some high level plots to see if we can notice the effect we're looking for, before doing any specific tests. We'll also test the normality of our data.
+(Scatter Plot)
+(Normality Histograms)
+
+The first test will be to split the data right down the middle, into two populations. The higher volume streets and the lower volume streets. We'll compare the population means and see if there is any difference, then we'll run a paired t-test and see if the difference is signifcant.
+
+Box Plot
+
+The two populations don't seem to have major differences at a high level view. However, the average shows XX% lower, and the resulting p-value is XXX, showing we can reject the null hypothesis that they are from the same population.
+
+Because we'd like to see if this is a practical rule of thumb we can use in every day parking, we can make use of boot strapping to create simulated results how effective using this in your decisions would be. You won't always be able to choose from 5,000 different street blocks, so we'll sample each population group and assume you can pick from 20 different streets, and you take the median of the streets sampled. By iterating this decision process a thousand times for each population group, we can create a normal curve for each population group that accurately reflects the differences in choosing from each population.
+
+We're going to split the population into four groups, or quartiles, by their rank in street volume, and run this test. The result is that the highest quartile seems to be consistently lower in total tickets per mile per year than those of the other three.
+
+I decided to break down populations even more granular, into 10 populations by order of their street volume rank. In this chart, we notice an even stronger effect in the higher populations than those of the more average. We also notice the lowest group in terms of street volume also tends to have less tickets as well.
+
+By comparing the population means of the highest group and the most average(middle 40-50%), we find the ration of tickets if roughly XX%! That means there is an average of XX% less tickets on the busiest streets than that of the average group.
+
+We also notice in this graph that the histogram gets steeper as our population rank increases. This is a good indicator that it is a useful correlation, because it is removing random noise!
+
+Once we've visually confirmed our theory that their is a link between street volume and total tickets, we can try to fit a model that will be a little more specific. I created an Ordinary Least Squares Regression model that split out the volume into cars, trucks, and buses. I also included speed. The results showed there is a significant effect from each variable. However, it can't really describe much of the variability, with an extremely low r-squared value. It also showed buses and speed we're a little mroe siginifacnt of variables.
+
+But I wanted to see if using this model would actually create some tangible results. So I re-indexed the streets, but using the fitted value to set their rank. We can then re-do our simulated experiment, and see if using this model to make our decisions would actually result in choosing the correct streets. Below is the result, splitting into 10 populations, and re-doing our sample analysis.
+
+The results are strong! There is a clear effect that the streets we predicted to receive less tickets actually do. We also notice there is much less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in. Let's take a deeper dive into the details of the model, with some diagnostic plots.
+
+The Q-Q plot shows the relationship might not be as linear as we expected, so we'll re-run the process but using the logarithmic values of each of our variables.
+
+The resulting model has a slightly higher r-squared, indicating its a better fit. The diagnostic plots show there is still a a pattern in the residuals, however that we haven't completely eliminated. However, we seem to have mitigated a few of our outliers. Let's re-run our sample experiment on the new fitted values.
+
+The results seem to be pretty similar to before, with lower means and variability for the populations we look to identify.
+
+
+Conclusion
+By combining data from almost 3 million parking tickets and street volume estimates from 30,000 street links,  we can create a model that will accurately predict which streets are less likely to get you a residential overtime ticket. The key factors are the various forms of traffic volume and speed. If you were to use this model to decide which street to park on, and we're able to consistently choose from streets in the 90% percentile, you would see an average of XX% total less tickets per mile per year. Or you could just buy a permit, your choice.
+
+
+Question 2:
+How long can I park without getting a ticket?
+
+
+
+Street Cleaning Analysis
+As you can see in the exploratory notebook, residential overtime tickets are not my only foe. Street Cleaning actually makes up for an overwhelming majority of the tickets that are given out. I have a few things I would like to test:
+1. Streets cleaned on a consistent basis give less tickets 'per sweep', than those that are less consistent(IE every other week).
+2.  Although a majority of the street cleaning tickets are given out between 8-10AM, I think thats just because there are more streets that are cleaned at time. Lets see if thats substantiated.
+3. Streets cleaned on Saturday and Sunday are more effective.
+
+
+
+
+
+## Few Extra Deliverables
+Query Heatmap -- This function will take your query arguments, and return a heatmap of all records found.
+
+Animation Function -- This function will take a day as an argument, and look up all tickets given out on that day. It will then create an animation video of tickets, showing up as points on the map, in the order they were given out. They will be colored by their ticket type.
+
+Recent Street Cleaning - This will take an address as an argument, and return the closest streets that were swept that day. These are typically easier to park in. Optional argument for streets that have never gotten a 'Residential Over Time Ticket'
+
+Estimated Sweeping Time --Finding a spot is a tough gig in San Francisco, so I've found the best practice is to know when the sweeping truck is coming by and try to follow him. Unsurprisingly, I'm not the only one who does this and it usually results in a death match between all cars. If you put in an address here, I'll give you an estimate as well a confidence interval on the range of times I would expect the truck to arrive, so you don't have to sit around and wait.
+
+Map the Sweeping route -- This will create an animation of the street sweepers route , so you can see where to catch him next.
