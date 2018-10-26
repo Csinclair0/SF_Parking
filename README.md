@@ -126,19 +126,19 @@ By comparing the population means of the highest group and the most average(midd
 
 Once we've confirmed our theory that their is a link between street volume and total tickets, we can try to fit a model that will be a little more specific. Let's see if we can include any more of the features that were available in the street volume data to create a better model. I created an Ordinary Least Squares Regression model that split out the volume into cars, trucks, and buses,as well as freeflow speed. The results showed there is a significant effect from each variable. However, it can't really describe much of the variability, with an extremely low r-squared value. It also showed buses and speed we're a little more significant of variables.
 
-![Initial Model](/reports/figures/analysis/Model_first.png)
+![Initial Model](/reports/figures/analysis/Model_First.png)
 
 But I wanted to see if using this model would actually create some tangible results. So I re-indexed the streets, but using the fitted value to set their rank. We can then re-do our simulated experiment, and see if using this model to make our decisions would actually result in choosing the correct streets. Below is the result, splitting into 10 populations, and re-doing our bootstrapping analysis.
 ![Initial Distributions](/reports/figures/analysis/Initial_Distirbutions.png)
 
 The results are strong! There is a clear effect that the streets we fit to receive less tickets actually do. By using this model to identify our best streets, we can reduce the average number of tickets by up to 50%!! We also notice there is much less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in identifying. Let's take a deeper dive into the details of the model, with some diagnostic plots.
-
+![Diagnostics](/reports/figures/analysis/Diagnostics_Original.png)
 The Q-Q plot shows the relationship might not be as linear as we expected, so we'll re-run the process but using the logarithmic values of each of our variables.
+![2nd OLS Model](/reports/figures/analysis/OLS_2nd_Fitted.png)
+![Diagnostics](/reports/figures/analysis/Diagnostics_2nd.png)
+The resulting model had a slightly higher r-squared, indicating its a better fit. The diagnostic plots show there is still a a pattern in the residuals, however,  that we haven't completely eliminated. But it seems we have mitigated a few of our outliers. When re-running the experiment, the results seem to be pretty similar to before, with lower means and variability for the populations we look to identify.
 
-The resulting model has a slightly higher r-squared, indicating its a better fit. The diagnostic plots show there is still a a pattern in the residuals, however that we haven't completely eliminated. However, we seem to have mitigated a few of our outliers. Let's re-run our sample experiment on the new fitted values.
-
-The results seem to be pretty similar to before, with lower means and variability for the populations we look to identify.
-
+![Final OLS chart](/reports/figures/analysus/Final_OLS_WOPark.png)
 
 ## Initial Conclusion
 Although there is a significant degree of uncertainty and variability, we can create a model that will estimate the amount of residential overtime tickets per street per year, and those results will be directionally accurate. If we assume that all other factors are equal. We can reduce the amount of tickets by up to 18% by strictly parking at locations that we identify in the top 10% rather than guessing normally, and up to 37% less than if we were to choose one of the worst set of streets. The most contributing factors are freeflow speed, car volume, and bus volume.

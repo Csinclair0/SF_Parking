@@ -451,6 +451,7 @@ def create_address_data():
     unfound.drop(columns = 'total_tickets', inplace = True)
     unfound['number'] = unfound['number'].astype(int)
     addresses = addresses.append(unfound)
+    addresses.to_sql('address_data', conn, if_exists = 'replace')
 
 
 

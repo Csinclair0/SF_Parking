@@ -205,7 +205,7 @@ def process_volume():
 
     print("Storing Data to SQL")
     streetsweeping = streetsweeping.append(df)
-    streetsweeping.to_file(proc_loc + 'final_sweeping.shp')
+    streetsweeping.to_file(proc_loc + '/final_sweeping/final_sweeping.shp')
     sqldf_sweep = streetsweeping.drop(columns = ['geometry', 'geometry'])
     sqldf_sweep.to_sql('street_sweep_data', con = conn, if_exists = 'replace')
 
