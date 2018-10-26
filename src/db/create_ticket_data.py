@@ -1,60 +1,85 @@
 #!/usr/bin/python3
+import os
 import sqlite3
 import pandas as pd
 import datetime as dt
 import glob
 import time
-import geopandas as gpd
 import re
 from geopy.geocoders import Nominatim
 from tqdm import tqdm
 import numpy as np
 from sqlalchemy import create_engine
+import geopandas as gpd
+from shapely.geometry import Point
 import math
-from geopandas.tools import sjoin
 import warnings
+warnings.filterwarnings('ignore')
 
-raw_folder = '/home/colin/Desktop/Parking_Project/data/raw/'
-proc_folder = '/home/colin/Desktop/Parking_Project/data/processed/'
+raw_loc = '/home/colin/Desktop/Parking_Project/data/raw/'
+proc_loc= '/home/colin/Desktop/Parking_Project/data/processed/'
 
 
 def create_db():
-    """Function solely to create sqlite database"""
-    disk_engine = create_engine('sqlite:///SF_Parking.db')
-    conn = sqlite3.connect('SF_Parking.db')
-    c = conn.cursor()
+    """This function will take no arguments and create a SQlite Database in the raw processed folder location.
+
+    Returns
+    ------- None
+    type
+
+    """
+
+    try:
+        os.remove(proc_loc + 'SF_Parking.db')
+        print("Legacy DB deleted")
+    except:
+        pass
+    disk_engine = create_engine('sqlite:///'+ proc_loc +'SF_Parking.db')
+    return sqlite3.connect(proc_loc + 'SF_Parking.db')
+
+
 
 def create_raw_data():
-    """
-    Function to loop through all raw ticket text files and insert into sqlite database, unprocessed. The only alteration will be to rename to remove all columns to remove spaces.
+    """This function loops through the raw ticket files, and inserts them into the raw ticket table in the created SQL DB.
+
+    Returns
+    ------- None
+    type
+
 
     """
-    start = dt.datetime.now()
-    for csv_file in glob.glob(raw_folder + '/ticket_data/PRR_*'):
+    for csv_file in glob.glob(raw_loc + '/ticket_data/PRR_*'):
+        filestring =os.path.basename(csv_file)
         index_start = 1
         j = 0
-        print('{} file started at {}'.format(csv_file, dt.datetime.now()))
+        start = dt.datetime.now()
+        print('{} file started at '.format(filestring, start.strftime("%H:%M")))
         df = pd.read_csv(csv_file, encoding = 'utf-8', parse_dates = ['Tick Issue Date'])
         df = df.rename(columns = {c: c.replace(' ', '') for c in df.columns})
         try:
-            df.to_sql('raw_ticket_data', conn, if_exists='append')
+            df.to_sql('raw_ticket_data', con = conn, if_exists='append')
         except:
             print('File read error')
 
 
-        print ('{} file finished in {:03.2f} minutes '.format(csv_file, (dt.datetime.now()-start).seconds / 60))
+        print ('{} file finished in {:03.2f} minutes '.format(filestring, (dt.datetime.now()-start).seconds / 60))
 
 
 def create_block_limits():
-    """
-    Use the SF Block Limit table to create a dictionary of dataframes for each street name. We can use this to bounce against when we have a combination that doesnt match the raw address records. We'll also create a dataframe of street intersections
+    """This function loops through the Block Limits table and creates two objects. These will become global variables as they will not be altered after this. Streetintersections is a dataframe that contains each intersection, and the beginning number of that block. Streetnamedict is a dictionary that contains a streetname, its suffix, and the minimum and maximum block limits of that combination.
+
+    Returns
+    ------- StreetIntersections , Streetnamedict
+    type
+        dataframe and dictionary
+
     """
     columns_first = ['BlockStart', 'StreetName', 'Suffix']
     columns_second = ['BlockEnd', 'Cross1', 'Cross2', 'numbers']
     valid_suffix = ['ST', 'WY', 'DR', 'AV', 'LN', 'WAY', 'TER', 'PL', 'AVE']
-    streetnamedict = {}
 
-    with open(raw_folder + 'SF_Block_Limits_Table.txt') as f:
+    streetnamedict = {}
+    with open(raw_loc + 'SF_Block_Limits_Table.txt') as f:
         lines = [line.rstrip('\n') for line in f]
 
     streetintersections = pd.DataFrame(columns = ['Street', 'Suffix', 'Isection', 'Number'])
@@ -72,8 +97,6 @@ def create_block_limits():
             maxnum = int(lines[idx+1].split()[1])
             suffixnums = streetnamedict.get(streetname, suffixnumsdefault)
             totalsuffix = pd.DataFrame(columns = ['Suffix', 'Min', 'Max', 'Count'])
-            #print(lines[idx+1])
-
             isections = str(lines[idx+1]).replace( '/', ' ').split()[3:5]
             dfrec1 = [streetname, streetname]
             dfrec2 = [suffix, suffix]
@@ -108,15 +131,27 @@ def create_block_limits():
             totalsuffix.reset_index()
             streetnamedict[streetname] = totalsuffix
     streetintersections.drop_duplicates(subset = ['Street', 'Isection'], inplace = True)
-    sqldf = streetintersections[['Number', 'Street']]
+    return streetintersections, streetnamedict
 
 
 
 replacements = ['[^0-9a-zA-Z\s]', '^0+']
 streetnums = {'1':'ST', '2': 'ND', '3': 'RD', '4': 'TH', '5': 'TH', '6': 'TH', '7': 'TH', '8': 'TH', '9': 'TH', '0': 'TH'}
-
 def replace_street(street):
-    """ This function is used to map numbered street names with their correct full name IE 3 into 03RD
+    """ This function will
+    1. remove any non alphanumeric characters
+    2. return a new mapped street name if the street name is a number. It also padds a zero for numbers less than 10. IE turn 3 into 03RD.
+
+    Parameters
+    ----------
+    street : string
+        the string of the streetname to pass through
+
+    Returns
+    -------street
+    type string
+
+
     """
     if isinstance(street, str):
         for rep in replacements:
@@ -138,7 +173,16 @@ def replace_street(street):
 
 
 def return_num(strnum):
-    """ function to remove non number characters """
+    """This function will take the street number, remove any non numeric characters, and replace it with a -1 if it is null. This will be so that we do not join it on any streets.
+
+    Parameters
+    ----------
+    strnum : string
+        Description of parameter `strnum`.
+
+    Returns
+    ------- strnum : int
+    """
     if strnum != strnum or strnum == ' ':
         return -1
     else:
@@ -148,7 +192,19 @@ def return_num(strnum):
 
 valid_suffix = ['ST', 'WY', 'DR', 'AV', 'LN', 'WAY', 'TER', 'PL', 'BLVD', 'AVE']
 def return_street(streetname):
-    """ Some streets have names like 'AVENUE A' we dont want to strip out, only remove the last suffix if in the list. """
+    """ remove suffix from street and return only the 'street name'
+
+    Parameters
+    ----------
+    streetname : string
+        Full street, 'JONES ST'
+
+    Returns
+    -------
+    string
+        'JONES'
+
+    """
     if streetname == None:
         return streetname
     if streetname.split(" ")[-1] in valid_suffix:
@@ -158,87 +214,100 @@ def return_street(streetname):
 
 
 
-def create_address_data():
-    """
-    Function to read address data, strip out apartment numbers, combine into a full address, and strip out the street name into its own column.
-
-    """
-    addresses = pd.read_csv('san_francisco_addresses.csv')
-    addresses.columns = map(str.lower, addresses.columns)
-
-    keepcolumns = ['lon', 'lat', 'number', 'street']
-    addresses = addresses[keepcolumns]
-    addresses['number'] = addresses['number'].apply(lambda x: re.findall( '\d+', x)[0]).astype(int)
-    addresses['address'] = addresses.apply(lambda x: str(x['number']) + " " + str(x['street']), axis = 1)
-    addresses['streetname'] = addresses['street'].apply(return_street)
-    addresses.drop_duplicates(subset = 'address', inplace = True)
-    addresses['type'] = 'known'
-    addresses.to_sql('raw_address_data', if_exists = 'replace', con = conn)
-
-
-def find_similar_address():
-    """For any address that won't yield a match, must search for 'similar' addresses that are known that are on same block and streetname. Filter out all those it could not identify and save them into an unfound dataframe. Only include those we did, take the closest records coordinates, note we only drop on 'street' (street + suffix)
-    and not streetname , so we'll keep both suffixes if valid"""
-
-    df = result_query('Select distinct tickstreetno , tickstreetname , count(*) total_tickets from raw_ticket_data t1'
-                      ' left join raw_address_data t2 on t1.TickStreetNo = t2.number and t1.TickStreetName = t2.streetname '
-                      " where t2.address is null group by tickstreetno, tickstreetname ")
-
-    df['TickStreetNo'] = df['TickStreetNo'].apply(return_num)
-    df['TickStreetName'] = df['TickStreetName'].apply(replace_street)
-    df['TickStreetName'] = df['TickStreetName'].apply(return_street)
-    df['blocknum'] = df['TickStreetNo'].apply(lambda x: math.ceil(x/100))
-    df.drop_duplicates(inplace = True)
-
-    df2 = addresses
-    df2['blocknum'] = df2['number'].apply(lambda x: math.ceil(x/100))
-    newdf = df.merge(df2, how = 'left', left_on = ['TickStreetName', 'blocknum'], \
-                 right_on = ['streetname', 'blocknum'])
-
-    unfound = newdf[pd.isnull(newdf.number)]
-    unfound['type'] == "unknown"
-    newdf = newdf[pd.isnull(newdf.number) == False]
-    newdf['delta'] = np.abs(newdf['number'] - newdf['TickStreetNo'])
-    newdf.sort_values(by = 'delta', inplace = True)
-    newdf.drop_duplicates(subset = ['TickStreetName', 'TickStreetNo'], keep = 'first', inplace = True)
-    newdf = newdf[[ 'lon', 'lat', 'TickStreetNo', 'street', 'address','streetname' ]]
-    newdf.columns = ['lon', 'lat', 'number', 'street', 'address','streetname' ]
-    newdf['address'] = newdf['number'].map(str) + ' ' + newdf['street']
-    newdf.drop_duplicates(inplace = True)
-    newdf['type'] = 'similar'
-    newdf.to_sql('raw_address_data', conn, if_exists = 'append')
-
-
 def return_intersections(streetname):
-        """Sometimes they put an intersection instead of any coordinates, lets try to solve that
-        function to return address of record that only put intersection"""
-    if streetname != None and isinstance(streetname, str):
-        if ' AND ' in streetname:
-            streetnames = streetname.split(' AND ')
-            df = streetintersections[(streetintersections.Street == streetnames[0]) \
-                                            & (streetintersections.Isection == streetnames[1])]
-            if df.shape[0] > 0:
-                return str(int(df['Number'].iloc[0])) + ' ' + df['Street'].iloc[0] + ' ' + df['Suffix'].iloc[0]
+    """This function will take the streetname, and see if it is an intersection by checking if it contains the word ' AND'. It will then check our street intersections dataframe, and try to return a valid address.
+
+    Parameters
+    ----------
+    streetname : string
+        string value of ticket data record.
+
+    Returns
+    ------- streetname
+    type
+        new, valid, address.
+
+    """
+    if streetname != None and isinstance(streetname, str) and ' AND ' in streetname:
+        streetnames = streetname.split(' AND ')
+        df = streetintersections[(streetintersections.Street == streetnames[0]) \
+                                        & (streetintersections.Isection == streetnames[1])]
+        if df.shape[0] > 0:
+            return str(int(df['Number'].iloc[0])) + ' ' + df['Street'].iloc[0] + ' ' + df['Suffix'].iloc[0]
+    return None
+
+
+
+def check_location(location):
+    """Checks if location coordinates are withi San francisco, this is to validate any addresses that we look up on openstreetmap.
+
+    Parameters
+    ----------
+    location : tuple of coordinates
+        These are the latitude and longitude returned from Open Street Map,
+
+    Returns
+    ------- Boolean which will dictate whether it can be entered.
+
+
+
+    """
+    if location.latitude > 35 and location.latitude < 39 and location.longitude > -123 and location.longitude < -120:
+        return True
+    else:
+        return False
+
+
+
+def create_locs(address):
+    """Reverse Geocoding using Open Street Map.
+
+    Parameters
+    ----------
+    address : string
+        The combined street number, full street name, and ' SAN FRANCISCO CA'
+        IE '980 BUSH STREET SAN FRANCISCO CA'
+
+    Returns
+    -------location
+    tuple of coordinates, or nonetype
+
+
+    """
+    geolocator = Nominatim(user_agent = 'SF_Parking_EDA')
+    try:
+        location = geolocator.geocode(address, timeout = 10)
+    except:
+        location = None
+    time.sleep(1)
+
+    if location != None and check_location(location):
+        return (location.latitude, location.longitude )
     else:
         return None
 
 
-def find_intersection_address():
-    ""'Scrap out those we know are invalid, check if they are intersections'
-    unfound = unfound[unfound.TickStreetNo < 10000]
-    isection = unfound[['TickStreetNo','TickStreetName', 'total_tickets']]
-    isection['address'] = isection['TickStreetName'].apply(return_intersections)
-    unfound = isection[pd.isnull(isection.address) == True]
-    isection = isection[pd.isnull(isection.address) == False]
-    isection = isection.merge(addresses, left_on = 'address', right_on = 'address')
-    isection = isection[['number', 'streetname', 'street', 'address', 'lat', 'lon']]
-    isection.to_sql('raw_address_data', if_exists = 'append', con = conn)
-
 
 
 def return_streetname_unknown( streetnum, streetname):
-    """ use street dictionary of dataframes to look for suffix of any combination that is not found
-    use most popular if more than one. """
+    """This function uses the streetnamedict dictionary to try and find a valid suffix to append to the street name. It will return the first value it finds as valid. If it can;t find anything perfectly matching, it will take the closest block limit.
+
+    Parameters
+    ----------
+    streetnum : integer
+        Ticket street number value
+    streetname : string
+        Ticket street name value
+
+    Returns
+    ------- streetname
+    type
+        streetname plus a suffix at the end.
+
+    """
+    global availablesuffix
+    global streetnamedict
+
     if streetnum != streetnum:
         strnum = ''
     else:
@@ -256,7 +325,7 @@ def return_streetname_unknown( streetnum, streetname):
             if validsuffix.shape[0] > 0:
                 validsuffix = validsuffix.sort_values(by = 'Count', ascending = False)
             else:
-                availablesuffix['delta'] = availablesuffix.apply(lambda x: return_closest(x['Min'], x['Max'], streetnum), axis = 1)
+                availablesuffix['delta'] = availablesuffix.apply(lambda x: min(np.abs(x['Min'] - streetnum), np.abs(x['Max'] - streetnum)), axis = 1)
                 validsuffix = availablesuffix.sort_values(by = 'delta', ascending = True)
 
             validsuffix = validsuffix.reset_index()
@@ -270,37 +339,89 @@ def return_streetname_unknown( streetnum, streetname):
     streetname += ' ' + suffix
     return streetname
 
-def check_location(location):
-    """Function to make sure reverse geocoded address is valid"""
-    if location.latitude > 35 and location.latitude < 39 and location.longitude > -123 and location.longitude < -120:
-        return True
-    else:
-        return False
-
-
-geolocator = Nominatim(user_agent = 'SF_Parking_EDA')
-def create_locs(address):
-    """Function to look up address that we coudn't generate"""
-    try:
-        location = geolocator.geocode(address, timeout = 10)
-    except:
-        location = None
-    time.sleep(1)
-
-    if location != None and check_location(location):
-        return (location.latitude, location.longitude )
-    else:
-        return None
 
 
 
 
-def return_unknown_addresses():
+def create_address_data():
+    """This is the main function that creates the address data table. The process is as follows.
+
+    1. Read Raw File, strip out apartment numbers, combine number and street to create an address, add column of 'streetname' which has suffix removed. Insert into raw address table.
+    2. Find similar addresses by using known ones, searching for those that are on the same blockself.
+    3. Anything left over will be searched through the intersections function, and then 500 of the top most occuring addresses will be rever geocoded using openstreetmap.
+
+
+    Returns
+    ------- single_address : DataFrame
+    ------- double_address : DataFrame
+    ------- addresses : DataFrane
+    type
+        dataframes separating addresses that could have one location or two, based on the street number and street name combination. also all addresses are returned
+
+    """
+    print("Reading address data file")
+    addresses = pd.read_csv(raw_loc + 'san_francisco_addresses.csv')
+    addresses.columns = map(str.lower, addresses.columns)
+
+    keepcolumns = ['lon', 'lat', 'number', 'street']
+    addresses = addresses[keepcolumns]
+    addresses['number'] = addresses['number'].apply(lambda x: re.findall( '\d+', x)[0]).astype(int)
+    addresses['address'] = addresses.apply(lambda x: str(x['number']) + " " + str(x['street']), axis = 1)
+    addresses['streetname'] = addresses['street'].apply(return_street)
+    addresses.drop_duplicates(subset = 'address', inplace = True)
+    addresses['type'] = 'known'
+    addresses.to_sql('raw_address_data', if_exists = 'replace', con = conn)
+
+
+    print("Finding similar addresses")
+    df = pd.read_sql('Select distinct tickstreetno , tickstreetname , count(*) total_tickets from raw_ticket_data t1'
+                      ' left join raw_address_data t2 on t1.TickStreetNo = t2.number and t1.TickStreetName = t2.streetname '
+                      " where t2.address is null group by tickstreetno, tickstreetname ", conn)
+
+    df['TickStreetNo'] = df['TickStreetNo'].apply(return_num)
+    df['TickStreetName'] = df['TickStreetName'].apply(replace_street)
+    df['TickStreetName'] = df['TickStreetName'].apply(return_street)
+    df['blocknum'] = df['TickStreetNo'].apply(lambda x: math.ceil(x/100))
+    df.drop_duplicates(inplace = True)
+
+    df2 = addresses
+    df2['blocknum'] = df2['number'].apply(lambda x: math.ceil(x/100))
+    newdf = df.merge(df2, how = 'left', left_on = ['TickStreetName', 'blocknum'], \
+                 right_on = ['streetname', 'blocknum'])
+
+
+    unfound = newdf[pd.isnull(newdf.number)]
+    unfound['type'] == "unknown"
+    newdf = newdf[pd.isnull(newdf.number) == False]
+    newdf['delta'] = np.abs(newdf['number'] - newdf['TickStreetNo'])
+    newdf.sort_values(by = 'delta', inplace = True)
+    newdf.drop_duplicates(subset = ['TickStreetName', 'TickStreetNo'], keep = 'first', inplace = True)
+    newdf = newdf[[ 'lon', 'lat', 'TickStreetNo', 'street', 'address','streetname' ]]
+    newdf.columns = ['lon', 'lat', 'number', 'street', 'address','streetname' ]
+    newdf['address'] = newdf['number'].map(str) + ' ' + newdf['street']
+    newdf.drop_duplicates(inplace = True)
+    newdf['type'] = 'similar'
+    newdf.to_sql('raw_address_data', conn, if_exists = 'append')
+
+
+
+    print("Searching for Intersection Addresses")
+    unfound = unfound[(unfound.TickStreetNo < 10000) & (unfound.TickStreetNo > 0)]
+    isection = unfound[['TickStreetNo','TickStreetName', 'total_tickets']]
+    isection['address'] = isection['TickStreetName'].apply(return_intersections)
+    unfound = isection[pd.isnull(isection.address) == True]
+    isection = isection[pd.isnull(isection.address) == False]
+    isection = isection.merge(addresses, left_on = 'address', right_on = 'address')
+    isection = isection[['number', 'streetname', 'street', 'address', 'lat', 'lon']]
+    isection.to_sql('raw_address_data', if_exists = 'append', con = conn)
+
+
+    print("Searching for Unknown Addresses")
     unfound.drop_duplicates(inplace = True)
     tqdm.pandas()
     unfound['street'] = unfound.apply(lambda x: return_streetname_unknown(x['TickStreetNo'], x['TickStreetName']), axis = 1)
     unfound['address'] = unfound.apply(lambda x: str(x['TickStreetNo']) + " " + str(x['street']), axis = 1)
-    lookup = unfound.sort_values(by = 'total_tickets', ascending = False)[:500]
+    lookup = unfound.sort_values(by = 'total_tickets', ascending = False)[:500]                                             #CHANGE  TO 500
     lookup['coordinates'] = lookup['address'].progress_apply(lambda x: create_locs(x + ' SAN FRANCISCO CA'))
     lookup.dropna(subset = ['coordinates'], inplace = True)
     lookup['lat'] = lookup['coordinates'].apply(lambda x: x[0])
@@ -313,28 +434,26 @@ def return_unknown_addresses():
     lookup.to_sql('raw_address_data', if_exists = 'append', con = conn)
 
 
-def add_nhoods():
-    """Function to look up all addresses that have coordinates and associate a neighborhood with them. Use a shapely join to associate them. For any that don't have coordinates, we'll include them anyway without the neighborhoood identifier."""
-    addresses = result_query('Select * from raw_address_data')
+    print("associating neighborhoods")
+    addresses = pd.read_sql('Select * from raw_address_data', conn)
     addresses['geometry'] = addresses.apply(lambda x: Point(x['lon'], x['lat']), axis = 1)
     point = gpd.GeoDataFrame(addresses['geometry'])
     point.crs = {'init': 'epsg:4326'}
-    poly  = gpd.GeoDataFrame.from_file(raw_folder + 'AnalysisNeighborhoods.geojson')
-    pointInPolys = sjoin(point, poly, how='left')
+    poly  = gpd.GeoDataFrame.from_file(raw_loc+ 'AnalysisNeighborhoods.geojson')
+    pointInPolys = gpd.tools.sjoin(point, poly, how='left')
     addresses['geometry'] = addresses['geometry'].astype(str)
     pointInPolys['geometry'] = pointInPolys['geometry'].astype(str)
     addresses = addresses.merge(pointInPolys, left_on = 'geometry', right_on = 'geometry')
     addresses.drop(columns = ['geometry', 'index', 'index_right'], inplace = True)
     addresses.drop_duplicates(subset = 'address', inplace = True)
     addresses['number'] = addresses['number'].astype(int)
-    addresses.to_sql('address_data', conn, if_exists = 'replace')
     unfound.rename(columns = {'TickStreetNo':'number', 'TickStreetName': 'streetname'}, inplace = True)
     unfound.drop(columns = 'total_tickets', inplace = True)
     unfound['number'] = unfound['number'].astype(int)
-    unfound.to_sql('address_data', if_exists = 'append', con = conn)
+    addresses = addresses.append(unfound)
 
 
-def create_singles():
+
     """Function is to separate addresses into those that may have have more than one address associated with a ticket and street name combo. """
     grouped = addresses.groupby(by = ['number', 'streetname'], as_index = False)['address'].agg('count')
     grouped.sort_values(by = 'address', ascending = False)
@@ -342,22 +461,45 @@ def create_singles():
     single_address = grouped[grouped.count_ad ==1]
     single_address = single_address.merge(addresses, left_on = ['number', 'streetname'], right_on = ['number', 'streetname'])
     double_address = addresses[addresses.address.isin(single_address['address']) == False]
+    single_address.to_sql('single_address', conn, if_exists = 'replace')
+
+
+    return single_address, double_address, addresses
+
 
 
 def bernoulli(p):
-    """Bernoulli random number generator"""
+    """bernoulli random number generator. takes probability and if less returns a 0.
+
+    Parameters
+    ----------
+    p : float between 0 and 1
+
+
+    Returns
+    -------
+     0 or 1
+
+    """
     if np.random.random() < p:
         return 0
     else:
         return 1
 
 
-
-nhoodtype = result_query('Select nhood, violationdesc, count(*) tickets from raw_ticket_data t1 join single_address t2 '
-                         ' on t1.TickStreetNo = t2.number and t1.TickStreetName = t2.streetname group by nhood, violationdesc')
-
 def return_address(row):
-    """ For anything we can't find using our merges, we use a ratio of total tickets for that violation description and neighborhood"""
+    """Function is used for a 'double address' when we can't make a decision based on previous neighborhoods. First we'll use a couple rules we know. Then we'll use the neighborhood and ticket type to generate a probability of which address it was at. We'll pass that probability through the bernoulli probability.
+
+    Parameters
+    ----------
+    row : dataframe row
+        row of ticket dataframe that is being processed
+    Returns
+    -------
+    address : string
+        final address chosen
+
+    """
     streetnum = row['TickStreetNo']
     streetname = row['TickStreetName']
     ticket_type = row['ViolationDesc']
@@ -392,7 +534,19 @@ def return_address(row):
 
 
 def Time(row):
-    #add time to date
+    """Combines date and time into one.
+
+    Parameters
+    ----------
+    row : dataframe row
+        row in ticket dataframe being processed
+
+    Returns
+    -------
+    newtime : datetime
+        time and date combined
+
+    """
     try:
         timeadd = dt.datetime.strptime(row['TickIssueTime'], '%H:%M').time()
     except:
@@ -403,7 +557,19 @@ def Time(row):
 
 
 def return_time_delta(time):
-    """return timedelta for comparison"""
+    """Returns a timedelta object from the given time in H:M
+
+    Parameters
+    ----------
+    time : string
+        string of time (%H:%M)
+
+    Returns
+    -------
+    timedelta
+        timedelta object contianing hours and minutes
+
+    """
     if time == None:
         time = [0,0]
     else:
@@ -412,8 +578,22 @@ def return_time_delta(time):
         time = [0,0]
     return dt.timedelta(hours = int(time[0]), minutes = int(time[1]))
 
+
+
 def return_cost(coststring):
-    """Strip out currency signs, ignore nulls, return number"""
+    """Strips out currency from amount, returns 0 if nothing there.
+
+    Parameters
+    ----------
+    coststring : string
+        string of value for either amoutn owed or paid '$98'
+
+    Returns
+    -------
+    integer
+        integer of cost
+
+    """
     coststring = re.sub('[^1-9]', '', str(coststring))
     try:
         intreturn = int(coststring)
@@ -424,19 +604,29 @@ def return_cost(coststring):
 
 
 def process_ticket_data():
-    """The final function that puts it all together. Process each column to give us clean data. Split out all problem records that could be associated with two different addresses. For those quesitonable records, we'll merge against the valid locations on badge and neighborhood, and then sort by time. Anything we can't merge on, we'll pass to our function. Well then replace the columns and insert into our processes ticket data table. This function is designed to process the total data set in chunks so it does not create large merges or long functions."""
+    """The final function that puts it all together. Process each column to give us clean data. Split out all problem records that could be associated with two different addresses. For those quesitonable records, we'll merge against the valid locations on badge and neighborhood, and then sort by time. Anything we can't merge on, we'll pass to our function. Well then replace the columns and insert into our processes ticket data table. This function is designed to process the total data set in chunks so it does not create large merges or long functions.
+
+    Parameters
+    ----------
+    addresses : DataFrame
+        dataframe of all addresses
+
+    Returns
+    -------
+    none, finished database is created.
+
+    """
     c = conn.cursor()
     c.execute('Select Count(*) from raw_ticket_data')
     totalleft = c.fetchone()[0]
     print('{} total rows required'.format(totalleft))
     np.random.seed(1)
-    df_total = result_query('Select Ticketnumber, TickIssueDate, TickIssueTime, ViolationDesc, '
+    df_total = pd.read_sql('Select Ticketnumber, TickIssueDate, TickIssueTime, ViolationDesc, '
                   ' VehMake, TickRPPlate, TickStreetNo, TickMeter, Agency, TickBadgeIssued, '
-                   'TickStreetName , TotalPaid, TotalAmtDue from raw_ticket_data ')
+                   'TickStreetName , TotalPaid, TotalAmtDue from raw_ticket_data ', conn)
     columnlist = df_total.columns.tolist()
     df_total.sort_values(by = 'TickIssueDate', inplace = True)
-    warnings.filterwarnings('ignore')
-    n = 500000  #chunk row size
+    n = 500000
     totalsize = df_total.shape[0]
     indexes = [i for i in range(0,totalsize, n)]
     columnlist = df_total.columns.tolist()
@@ -445,7 +635,7 @@ def process_ticket_data():
     j = 1
     for i in indexes:
         df = df_total[i:i+n]
-        print('Iteration {} started at {}. {} records left'.format(j, dt.datetime.now(), totalsize))
+        print('Iteration {} started at {}. {} records left'.format(j, dt.datetime.now().strftime("%H:%M"), totalsize))
         df['TickStreetNo'] = df['TickStreetNo'].apply(return_num)
         df['ViolationDesc'] = df['ViolationDesc'].apply(lambda x: x.replace('METER DTN','MTR OUT DT'))
         df['TickStreetName'] = df['TickStreetName'].apply(replace_street)
@@ -467,6 +657,7 @@ def process_ticket_data():
         df_2.columns = [col.replace('_x', '') for col in df_2.columns]
         df_3.columns = [col.replace('_x', '') for col in df_3.columns]
         df_2.drop_duplicates(subset = 'TicketNumber', inplace = True)
+        print("Searching for unmatchable addresses")
         df_3['address'] = df_3.progress_apply(return_address, axis = 1)
 
         df = df_1.append(df_2)
@@ -482,20 +673,51 @@ def process_ticket_data():
         totalsize -= n
         j+=1
 
-    print('Finished!')
+
+    return
+
+
 
 def main():
-    create_db()
-    create_raw_data()
-    create_block_limits()
-    creat_address_data()
-    find_similar_address()
-    find_intersection_address()
-    return_unknown_addresses()
-    add_nhoods()
-    create_singles()
-    process_ticket_data()
+    """main function to accomplish all procedures in order.
+    1. Create database
+    2. Insert raw ticket database
+    3. Create block Limits
+    4. create address data
+    5. Process all ticket data
 
+    Returns
+    -------
+    none
+        finished data creation.
+
+    """
+    print("Initializing Database")
+    global conn
+    conn = create_db()
+
+    print("Inserting Raw Ticket Data")
+    create_raw_data()
+    print("Creating Block Limits DataFrame")
+
+    global streetnamedict
+    global streetintersections
+    streetintersections, streetnamedict = create_block_limits()
+
+    print("Starting Address Creation")
+    global single_address
+    global double_address
+    global addresses
+    single_address, double_address, addresses = create_address_data()
+    print("Finished Creating addresses")
+
+    global nhoodtype
+    nhoodtype = pd.read_sql('Select nhood, violationdesc, count(*) tickets from raw_ticket_data t1 join single_address t2 '
+                             ' on t1.TickStreetNo = t2.number and t1.TickStreetName = t2.streetname group by nhood, violationdesc', conn)
+
+    print("Processing Ticket Data")
+    process_ticket_data()
+    print('Finished processing Ticket Data!')
 
 if __name__== '__main__':
     main()

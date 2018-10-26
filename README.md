@@ -1,6 +1,7 @@
 # San Francisco Parking Ticket Analysis
 Project Organization
 ---------
+```
 .
 ├── README                        <-The top level README
 ├── data
@@ -25,6 +26,8 @@ Project Organization
     │   ├── extras.py
     └── __init__.py             <- makes src a Python Module
 
+```
+
 ## Project Workflow
 
 
@@ -47,14 +50,13 @@ I also found a planning neighborhood zoning map so I could associate each addres
 
 For traffic volume, I went to the San Francisco County Transportation Authority. They are the keepers of a model called SFCHAMP, the official travel forecasting tool for San Francisco.You can read more about the forecasting model[here](https://www.sfcta.org/modeling-and-travel-forecasting). They were able to provide me a historical travel pattern estimate from this model, in the form of a shapefile.
 
-In order to avoid any bias when comparing the number of tickets per street I found a street parking availability census, also in the form of a shapefile. [link] (http://sfpark.org/resources/parking-census-data-context-and-map-april-2014/)
 
 While I was at it, I found the street cleaning routes from openDataSF.com, also in shapefile form.[link] (https://data.sfgov.org/City-Infrastructure/Historical-Street-Sweeper-Scheduled-Routes/u2ac-gv9v)
 
 
 ## Data Cleaning Process
-Because the processing of this data take a considerable amount of time, the results of the data cleaning were stored in a SQLite database. The finished Schema is shown below.
-![Sql Schema] (reports/figures/sqldb.png)
+Because of the large nature of the database, it was stored in SQLite. The finished Schema is shown below.
+![Sql Schema](reports/figures/sqldb.png)
 
 
 In order to get a relational database that could pair a ticket with a street id, the first task was to associate an address with every ticket. The ticket data does not include the street suffix, which will cause more issues later on, but for now that means we would like to strip out just the street name from the address data so we have something to join on. Then we can use this table to query against what doesn't match. We'll then find what doesn't match, and we'll look for "similar" addresses. These will be addresses that share a street name, are on the same block(address rounded to 100 ), and block side (Odd or even).
@@ -94,31 +96,42 @@ Question 1:
 Streets with higher volumes of traffic get less tickets.
 
 Now for the main event. Let's use our finished sql database to associate the total number of residential overtime tickets associated with each street link. Then we can see if there is any significant differences between streets that have higher volumes. In order to make a 'fair' comparison by street, we'll convert the total tickets into total tickets per linear mile per year, using the distance of the street link.
-We'll create some high level plots to see if we can notice the effect we're looking for, before doing any specific tests. We'll also test the normality of our data.
-(Scatter Plot)
-(Normality Histograms)
+We'll create some high level plots to see if we can notice the effect we're looking for, before doing any specific tests. We'll also test the normality of our data. Both Street Volume and Total Tickets were best normalized by log-fitting the data. However, this does not eliminate that a large portion of the streets do not show any volume at all.
 
-The first test will be to split the data right down the middle, into two populations. The higher volume streets and the lower volume streets. We'll compare the population means and see if there is any difference, then we'll run a paired t-test and see if the difference is signifcant.
+![Street Normality](/reports/figures/analysis/streetnormality.png)
 
-Box Plot
+Let's also look at the scatter plot of total tickets vs street volume.
 
-The two populations don't seem to have major differences at a high level view. However, the average shows XX% lower, and the resulting p-value is XXX, showing we can reject the null hypothesis that they are from the same population.
+![Volume Scatter Plot](/reports/figures/analysis/VolumeScatter.png)
+
+At first, it visually appears there is a trend declining as street volume increases. However,it is noticeable that there is still a large portion of the data that remains now, and does not follow the trend.
+
+We'll also create a new measure,tickets per mile per year (which I'll just refer to as tickets per mile), which accounts for the total distance of the street link as well as the number of tickets. This will attempt to account for streets that are longer and will be unbias in the amount of parking spots available. This measure also needed to be log-fit to normalize the data.  The first test will be to split the data right down the middle, into two populations. The higher volume streets and the lower volume streets. We'll compare the population means and see if there is any difference, then we'll run a paired t-test and see if the difference is significant.
+
+![Volume Scatter Plot](/reports/figures/analysis/BoxPlot_Test.png)
+
+The two populations don't seem to have major differences at a high level view. We do notice slightly more variability in the higher population, and more extremely low outliers in the lower. The t-test comes back as insignificant with a value of .591, so we cannot reject the hypothesis that they have equal means. In fact, the average for the lower volume streets is actually about 4% lower.
 
 Because we'd like to see if this is a practical rule of thumb we can use in every day parking, we can make use of boot strapping to create simulated results how effective using this in your decisions would be. You won't always be able to choose from 5,000 different street blocks, so we'll sample each population group and assume you can pick from 20 different streets, and you take the median of the streets sampled. By iterating this decision process a thousand times for each population group, we can create a normal curve for each population group that accurately reflects the differences in choosing from each population.
 
-We're going to split the population into four groups, or quartiles, by their rank in street volume, and run this test. The result is that the highest quartile seems to be consistently lower in total tickets per mile per year than those of the other three.
+We're going to split the population into four groups, or quartiles, by their rank in street volume, and run this test. Here is when we start to notice that it is the highest quartile that seems to have a lower average of tickets per mile.
 
-I decided to break down populations even more granular, into 10 populations by order of their street volume rank. In this chart, we notice an even stronger effect in the higher populations than those of the more average. We also notice the lowest group in terms of street volume also tends to have less tickets as well.
+![Quartile Plot](/reports/figures/analysis/vol_4Pops.png)
 
-By comparing the population means of the highest group and the most average(middle 40-50%), we find the ration of tickets if roughly XX%! That means there is an average of XX% less tickets on the busiest streets than that of the average group.
+I decided to break down populations even more granular, into 10 populations by order of their street volume rank. In this chart, we notice an even stronger effect in the higher populations than those of the more average. Our top 3 populations are all some of the lowest. We also notice a lower group in terms of street volume shows up with lower tickets per mile as well.  
 
-We also notice in this graph that the histogram gets steeper as our population rank increases. This is a good indicator that it is a useful correlation, because it is removing random noise!
+![10 population Plot](/reports/figures/analysis/vol_10Pops.png)
 
-Once we've visually confirmed our theory that their is a link between street volume and total tickets, we can try to fit a model that will be a little more specific. I created an Ordinary Least Squares Regression model that split out the volume into cars, trucks, and buses. I also included speed. The results showed there is a significant effect from each variable. However, it can't really describe much of the variability, with an extremely low r-squared value. It also showed buses and speed we're a little mroe siginifacnt of variables.
+By comparing the population means of the highest group and the most average(middle 40-50%), we find the ratio of average tickets is roughly 75%!
 
-But I wanted to see if using this model would actually create some tangible results. So I re-indexed the streets, but using the fitted value to set their rank. We can then re-do our simulated experiment, and see if using this model to make our decisions would actually result in choosing the correct streets. Below is the result, splitting into 10 populations, and re-doing our sample analysis.
+Once we've confirmed our theory that their is a link between street volume and total tickets, we can try to fit a model that will be a little more specific. Let's see if we can include any more of the features that were available in the street volume data to create a better model. I created an Ordinary Least Squares Regression model that split out the volume into cars, trucks, and buses,as well as freeflow speed. The results showed there is a significant effect from each variable. However, it can't really describe much of the variability, with an extremely low r-squared value. It also showed buses and speed we're a little more significant of variables.
 
-The results are strong! There is a clear effect that the streets we predicted to receive less tickets actually do. We also notice there is much less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in. Let's take a deeper dive into the details of the model, with some diagnostic plots.
+![Initial Model](/reports/figures/analysis/Model_first.png)
+
+But I wanted to see if using this model would actually create some tangible results. So I re-indexed the streets, but using the fitted value to set their rank. We can then re-do our simulated experiment, and see if using this model to make our decisions would actually result in choosing the correct streets. Below is the result, splitting into 10 populations, and re-doing our bootstrapping analysis.
+![Initial Distributions](/reports/figures/analysis/Initial_Distirbutions.png)
+
+The results are strong! There is a clear effect that the streets we fit to receive less tickets actually do. By using this model to identify our best streets, we can reduce the average number of tickets by up to 50%!! We also notice there is much less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in identifying. Let's take a deeper dive into the details of the model, with some diagnostic plots.
 
 The Q-Q plot shows the relationship might not be as linear as we expected, so we'll re-run the process but using the logarithmic values of each of our variables.
 
@@ -127,8 +140,31 @@ The resulting model has a slightly higher r-squared, indicating its a better fit
 The results seem to be pretty similar to before, with lower means and variability for the populations we look to identify.
 
 
-## Conclusion
-By combining data from almost 3 million parking tickets and street volume estimates from 30,000 street links,  we can create a model that will accurately predict which streets are less likely to get you a residential overtime ticket. The key factors are the various forms of traffic volume and speed. If you were to use this model to decide which street to park on, and we're able to consistently choose from streets in the 90% percentile, you would see an average of XX% total less tickets per mile per year. Or you could just buy a permit, your choice.
+## Initial Conclusion
+Although there is a significant degree of uncertainty and variability, we can create a model that will estimate the amount of residential overtime tickets per street per year, and those results will be directionally accurate. If we assume that all other factors are equal. We can reduce the amount of tickets by up to 18% by strictly parking at locations that we identify in the top 10% rather than guessing normally, and up to 37% less than if we were to choose one of the worst set of streets. The most contributing factors are freeflow speed, car volume, and bus volume.
+
+
+However, this does not include parking spot availability. Note that bus volume is a much bigger factor than car volume. We know bus stops take up parking spots, so that is a clear correlation. I decided to run the whole analysis back, including parking availability data. You can find this in the next notebook.
+
+
+# Analysis With Parking Included
+
+In order to avoid any bias when comparing the number of tickets per street I found a street parking availability census, also in the form of a shapefile. [link] (http://sfpark.org/resources/parking-census-data-context-and-map-april-2014/)
+
+I used a similar pairing process as the street cleaning, using shapely joins and filtering on those that had the same street name. This just added a column to our street volume data with the parking supply quantity. Anything that didn't get a match, was back filled using the average spots per mile for that respective neighborhood.
+
+This time around, we'll use the measure tickets per 100 spots per year. I ran the exact same analysis as before, which came out with a similar conclusion when looking at street volume alone.
+
+![Street Volume](reports/figures/analysis/vol_WPark.png)
+
+When creating a model this time, I could add parking density as a feature, and see if that had an effect. I also added the one way street identifier this time around. I then tested to see if there were any significant interaction effects, and parking density combined with distance was significant, and added accuracy to the model. By re-running our bootstrapping analysis, we can see this increased our population difference from 18% up to 40% when using this new model. This model seems to be much more accurate. If we look at at a numerical description between our worst and best fitted populations, we can confirm what the model was looking for.
+
+![Final Model](reports/figures/analysis/OLS_final_fitted.png)
+
+The worst fitted population had smaller distances, lower parking supply, lower speeds, and lower volume. One Way streets had a significant difference, increasing the average number of tickets. Higher parking density was also a huge difference for the best streets compared to the worst. Maybe this could be because it requires them to look much harder for the residential permit, located on the bumper, for types of streets that are bumper to bumper and have higher volume. These streets tend to be on less 'residential' blocks, where no driveways exist, and would also most likely have...higher volume. So, by including parking supply I may have confirmed my initial findings, but expanded upon a deeper meaning in it.
+
+In conclusion, we can take millions of records of ticket data, pair it with street volume and parking density, and we can identify which streets are best to park at when trying to avoid a residential overtime ticket. The other option would be to buy a residential permit, but that's your choice.
+
 
 
 ## Question 2:
@@ -154,17 +190,31 @@ On each ticket, they write down what time they first came and marked your car, a
 
 
 
+Now using some Bayesian methodologies, we can combine these two distributions and create one probability distribution over time for the average SF Street. Below is a cumulative Distribution Plot of receiving a residential overtime ticket versus time at that spot.
 
-Street Cleaning Analysis
+CDF
+
+However, this study was based around the variability of arrival rates by streets, so lets use the arrival rates from our least and most patrolled streets, categorized from our regression model.
+
+Let's modify our arrival rate using the ratios of our best fitted and worst fitted populations, and plot all three.
+
+
+3 CDF
+
+## Street Cleaning Analysis
 As you can see in the exploratory notebook, residential overtime tickets are not my only foe. Street Cleaning actually makes up for an overwhelming majority of the tickets that are given out. I have a few things I would like to test:
 1. Streets cleaned on a consistent basis give less tickets 'per sweep', than those that are less consistent(IE every other week).
 2.  Although a majority of the street cleaning tickets are given out between 8-10AM, I think that's just because there are more streets that are cleaned at time. Lets see if that's substantiated.
 3. Streets cleaned on Saturday and Sunday are more effective.
 
+For this, I created a measure for each street called "success rate", which effectively is tickets given per mile swept. This combines the distance of the street link, and the frequency of sweeps per year. When can then chart the success rate of street links by how many times they are swept per month.
 
-Result
+1.  Below shows that as streets are cleaned more consistently, their "success rate" declines. Note that some streets may be cleaned 7 Days a Week by 5 weeks, showing up as 35 days here. That would not truely be the case, However, they are still significantly lower.  
+
+2. The chart below shows success vs time cleaning started. We see that morning sweeping, and overnight are most effective.
 
 
+3. Below shows chart of success rate by day of week. Seems like most people get caught off guard on the weekends.
 
 
 ## Few Extra Deliverables
