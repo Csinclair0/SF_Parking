@@ -5,21 +5,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
-import itertools
 import datetime as dt
 import time
 import re
-from scipy import stats
 import geopandas as gpd
 import sqlite3
 import folium
-from folium import plugins
+from shapely.geometry import Point
 import webbrowser, os
+import mplleaflet
 
 
 
 raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
-proc_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
+proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
 image_loc = '/home/colin/Desktop/SF_Parking/reports/figures/explore/'
 map_loc = '/home/colin/Desktop/SF_Parking/reports/maps/'
 #plt.style.use('fivethirtyeight')
@@ -30,6 +29,33 @@ mpl.rc('xtick', labelsize = 8 )
 
 global conn
 conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
+
+
+
+
+def data_by_meter(storefigs, address_data):
+    """Function to plot out average tickets per meter for each neighborhood
+
+    Returns
+    -------
+    plot.
+    """
+    meter_address = pd.read_sql_query('Select TickMeter, address, count(*) num from ticket_data group by TickMeter, address', conn)
+    meter_address = meter_address[meter_address.address.isin(address_data['address'])]
+    meter_address.sort_values(by = 'num', ascending = False)
+    meter_address.drop_duplicates(subset = 'TickMeter')
+    meters = meters.merge(meter_address, left_on = 'TickMeter', right_on = 'TickMeter')
+
+    plt.figure(figsize = (10,6))
+    ax = meters.merge(address_data, left_on = 'address', right_on = 'address').groupby(by = 'nhood')['total_tickets'].mean().plot(kind = 'bar')
+    ax.set_title('Average Tickets per Parking Meter by Neighborhood')
+    plt.show()
+    title = 'MetbyNhood.png'
+    if storefigs == 'Y':
+        plt.savefig(image_loc + title)
+
+    return
+
 
 def load_data():
     """
@@ -47,7 +73,7 @@ def load_data():
     return ticket_data
 
 
-def generate_plots(ticket_data):
+def generate_plots(ticket_data, storefigs):
     """function to go through and create exploratory plots.
 
     Parameters
@@ -70,7 +96,7 @@ def generate_plots(ticket_data):
     totalyears = totaldays /365
 
     ticket_data['nhood'] = ticket_data['nhood'].apply(lambda x: 'Fidi' if x == 'Financial District/South Beach' else x)
-    storefigs = input('Would you like to save the figures in the project folder?(Y or N)')
+
 
     #Most common ticket types
     choice = int(input("How many of the most common tickets would you like to see? (def 10)"))
@@ -174,10 +200,10 @@ def generate_plots(ticket_data):
     ticket_data_val = ticket_data[ticket_data['nhood'] !='Unkown']
     type_by_hood = ticket_data_val[ticket_data_val['nhood'].isin(ticket_data['nhood'].value_counts()[:choice].index.tolist())]
     pivot_df = type_by_hood.groupby(['Hour', 'nhood'])['Hour'].count().unstack('nhood').fillna(0)
-    pivot_df.plot(kind = 'bar', figsize = (15, 10), stacked = True)
+    ax = pivot_df.plot(kind = 'bar', figsize = (15, 10), stacked = True)
     plt.legend(loc = 1)
     ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
-    plt.title('Total Tickets by Hour of Day, Split by Neighborhood')
+    ax.set_title('Total Tickets by Hour of Day, Split by Neighborhood')
     ax.set_axisbelow(True)
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     plt.xticks(rotation = 45)
@@ -198,7 +224,7 @@ def generate_plots(ticket_data):
     pivot_df = type_by_dow.groupby(['Weekday', 'ViolationDesc'])['Weekday'].count().unstack('ViolationDesc').fillna(0).reset_index()
     days = {6:'Sunday', 0:'Monday', 1:'Tuesday', 2:'Wednesday', 3:'Thursday', 4:'Friday', 5:'Saturday'}
     pivot_df['Weekday'] = pivot_df['Weekday'].map(days)
-    pivot_df.plot( x= 'Weekday', kind = 'bar', figsize = (10, 6), stacked = True)
+    ax = pivot_df.plot( x= 'Weekday', kind = 'bar', figsize = (10, 6), stacked = True)
     ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
     plt.title('Total Tickets by Day of week, By Ticket Type')
     ax.set_axisbelow(True)
@@ -257,6 +283,12 @@ def generate_plots(ticket_data):
         plt.savefig(image_loc + title)
     plt.show()
 
+
+
+    choice = input('Would you like to generate a chart by neighborhood, plotting meter success?')
+    if choice == 'Y':
+        data_by_meter(storefigs, address_data)
+
     return
 
 
@@ -283,7 +315,7 @@ def create_ticket_map(lic_plate, ticket_data):
         filename = map_loc + lic_plate + ".html"
         m.save(filename)
         webbrowser.open('file://' + os.path.realpath(filename))
-        time.sleep(4)
+        time.sleep(20)
     return "No Tickets Found with that License Plate. Try Mine! '7XCS244'"
 
 
@@ -308,11 +340,11 @@ def create_heatmap_query(sql_add):
         df = df.sample(n = 50000)
     ticketarr = df[['lat', 'lon']].as_matrix()
     m = folium.Map([37.7749, -122.4194], zoom_start = 12)
-    m.add_children(plugins.HeatMap(ticketarr, radius = 8))
+    m.add_children(folium.plugins.HeatMap(ticketarr, radius = 8))
     filename = map_loc + re.sub('[\W]', '', sql_add)+ ".html"
     m.save(filename)
     webbrowser.open('file://' + os.path.realpath(filename))
-    time.sleep(4)
+    time.sleep(20)
     return
 
 
@@ -332,56 +364,84 @@ def volume_maps(ticket_data):
         chart of volume and tickets
 
     """
-    choice = input('How many tickets would you like to add?')
-
-    streetvolume = gpd.read_file(proc_loc + './final_streets/SF_Street_Data.shp')
+    choice = int(input('How many tickets would you like to add?'))
+    streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
     streetvolume = streetvolume.to_crs(epsg = 4326)
     times = ['am', 'pm', 'ev', 'ea']
     for time in times:
         streetvolume['totalinv_' + time]  = streetvolume['total_'+time].apply(lambda x: np.log(1/(x+.5)))
     nhoods = gpd.read_file(raw_loc + 'AnalysisNeighborhoods.geojson')
-    base = streetvolume.plot( column = 'totalinv_ea', cmap = 'RdYlGn',  figsize = (15,15), alpha = .75)
+
+    ax = streetvolume.plot(column = 'totalinv_ea', cmap = 'RdYlGn', alpha = 1)
     if choice > 0:
         df = ticket_data.sample(n = choice)
         geometry = [Point(xy) for xy in zip(df.lon, df.lat)]
         df = df.drop(['lon', 'lat'], axis=1)
         crs = {'init': 'epsg:4326'}
-        gdf.plot(ax = base, marker = "*", color='black', markersize=2);
-    nhoods.plot(ax = base, alpha = .15, color = 'gray')
-    plt.title('San Francisco Street Volume')
-    plt.show()
+        gdf = gpd.GeoDataFrame(df, crs=crs, geometry=geometry)
+        gdf.plot(ax = ax, marker = "*", color='black', markersize=2);
+    filename = (map_loc + 'VolumeMap.html')
+    try:
+        os.remove(filename)
+    except:
+        pass
+
+    mplleaflet.show(fig=ax.figure, crs=streetvolume.crs, tiles='cartodb_positron', path = filename)
+
+
     return
 
 
-def data_by_meter():
-    """Function to plot out average tickets per meter for each neighborhood
+
+
+
+def colored_ticket_map(ticket_data):
+    """Function to plot volume maps, while coloring streets using colormap. We'll also add tickets if you user requests.
+
+    Parameters
+    ----------
+    ticket_data : dataframe
+        merged ticket data
+
 
     Returns
     -------
-    plot.
-    """
-    meter_address = pd.read_sql_query('Select TickMeter, address, count(*) num from ticket_data group by TickMeter, address', conn)
-    meter_address = meter_address[meter_address.address.isin(address_data['address'])]
-    meter_address.sort_values(by = 'num', ascending = False)
-    meter_address.drop_duplicates(subset = 'TickMeter')
-    meters = meters.merge(meter_address, left_on = 'TickMeter', right_on = 'TickMeter')
+    matplotlib chart
+        chart of volume and tickets
 
-    plt.figure(figsize = (10,6))
-    ax = meters.merge(address_data, left_on = 'address', right_on = 'address').groupby(by = 'nhood')['total_tickets'].mean().plot(kind = 'bar')
-    ax.set_title('Average Tickets per Parking Meter by Neighborhood')
-    plt.show()
+    """
+    colordict = {'STR CLEAN': 'cyan', 'RES/OT': 'green', 'MTR OUT DT': 'red', 'DRIVEWAY': 'orange', 'DBL PARK':'blue'}
+    print(colordict)
+    choice = int(input('How many tickets would you like to add?'))
+    if choice > 0:
+        df = ticket_data.sample(n = choice)
+        df['color'] = df['ViolationDesc'].apply(lambda x: colordict.get(x, 'magenta'))
+        colors = df['color']
+        geometry = [Point(xy) for xy in zip(df.lon, df.lat)]
+        df = df.drop(['lon', 'lat'], axis=1)
+        crs = {'init': 'epsg:4326'}
+        gdf = gpd.GeoDataFrame(df, crs=crs, geometry=geometry)
+        ax = gdf.plot( marker = "*", color=colors, markersize=2);
+    filename = (map_loc + 'TicketMap.html')
+    try:
+        os.remove(filename)
+    except:
+        pass
+
+    mplleaflet.show(fig=ax.figure, crs=gdf.crs, tiles='cartodb_positron', path = filename)
 
     return
+
 
 
 
 def main():
     print('Loading Data in usable form for analysis')
     ticket_data = load_data()
-
+    storefigs = input('Would you like to save the figures in the project folder?(Y or N)')
     choice = input('Welcome to the Exploratory Section. You wanna See some charts? Cause I got charts.(Y or N)')
     if choice == 'Y':
-        generate_plots(ticket_data)
+        generate_plots(ticket_data, storefigs)
 
     choice = input('Would you like to look up some license plates? (Y or N)')
     if choice == 'Y':
@@ -404,9 +464,13 @@ def main():
     if choice == 'Y':
         volume_maps(ticket_data)
 
-    choice = input('Would you like to generate a chart by meter?')
+
+    choice = input('Would you like to plot some tickets colored by type? (Y or N)')
     if choice == 'Y':
-        data_by_meter()
+        colored_ticket_map(ticket_data)
+
+    print('You have made it through the Exploratory section!')
+
 
 
 if __name__== '__main__':

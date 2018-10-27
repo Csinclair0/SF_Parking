@@ -173,8 +173,9 @@ def process_volume():
 
 
 
-    streetsweeping.drop_duplicates(subset = ['cnn', 'blockside', 'weekday'])
+
     df = streetsweeping.groupby(by = ['cnn', 'blockside', 'weekday'])['week1ofmon', 'week2ofmon', 'week3ofmon', 'week4ofmon', 'week5ofmon', 'totalpermonth'].sum()
+    streetsweeping.drop_duplicates(subset = ['cnn', 'blockside', 'weekday'])
     streetsweeping.drop(columns = ['totalpermonth', 'week1ofmon', 'week2ofmon', 'week3ofmon', 'week4ofmon', 'week5ofmon'] , inplace = True)
     streetsweeping = streetsweeping.merge(df, left_on = ['cnn', 'blockside', 'weekday'], right_on = ['cnn', 'blockside', 'weekday'])
     streetvolume_j = streetvolume[['lineid', 'geometry', 'streetname', 'total_ea']]
@@ -264,7 +265,7 @@ def pair_parking(streetvolume):
     none
         stored in SQL
     """
-    gpd.read_file(raw_loc + '/onstreet_parking/Sfpark_OnStreetParkingCensus_201404.shp')
+    spaces = gpd.read_file(raw_loc + '/onstreet_parking/Sfpark_OnStreetParkingCensus_201404.shp')
     spaces.crs = {'init': 'epsg:2227'}
     spaces = spaces.to_crs(epsg =4326)
     spaces = spaces[spaces.PRKNG_SPLY < 1000]

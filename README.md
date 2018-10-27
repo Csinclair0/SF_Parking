@@ -75,25 +75,8 @@ Once these tables were created, we now had a relational database that can be use
 
 ## Initial Exploration Findings
 (few interesting initial)
-First I did some exploratory analysis just to look for some interesting takeaways in the data, as well as ensure the data was processed properly and no major holes existed. There are quite a few graphs generated in the notebooks, but I'll highlight a few I found interesting.
+First I did some exploratory analysis just to look for some interesting takeaways in the data, as well as ensure the data was processed properly and no major holes existed. There are quite a few graphs generated in the notebooks, so I placed them in a separate [readme file](/src/explore/README.md) in the explore data older.
 
-![Tickets by Neighborhood](/reports/figures/explore/TickByNhood.png)
-
-![Street Clean By Hour](/reports/figures/explore/StreetCleanByHour.png)
-
-![TicketType Share by Nhood](/reports/figures/explore/SharebyHood.png)
-
-![Vehicle Type Share by Nhood](/reports/figures/explore/VehByNhood.png)
-
-Ticket Heat map
-
-My Tickets Map (More than 98%)
-
-Some other guy tickets map
-
-Street Volume and Ticket Plot
-
-Ticket data by Meter
 
 
 ## Testing The theory

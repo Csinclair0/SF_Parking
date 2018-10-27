@@ -1,10 +1,14 @@
 #!/usr/bin/python3
+import warnings
+warnings.filterwarnings('ignore')
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
 import itertools
 import datetime as dt
 import time
+import re
 from scipy import stats
 import sqlite3
 import geopandas as gpd
@@ -15,8 +19,11 @@ from statsmodels.graphics.gofplots import ProbPlot
 
 raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
 proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
-image_loc = '/home/colin/Desktop/SF_Parking/reports/figures/analysis/'
+image_loc = '/home/colin/Desktop/SF_Parking/reports/figures/analysis/initial'
 
+mpl.rcParams['savefig.bbox'] = 'tight'
+mpl.rcParams['figure.autolayout'] = True
+mpl.rc('xtick', labelsize = 8 )
 
 global conn
 conn = sqlite3.connect(raw_loc + 'SF_Parking.db')
@@ -32,7 +39,7 @@ def create_street_data():
 
     """
     #Lets categorize addresses by our street volume
-    streets = pd.read_sql_query("Select distinct t2.lineid, nhood, distance, total_ea, vvol_busea, speed_ea, count(*) total_tickets "
+    streets = pd.read_sql_query("Select distinct t2.lineid, nhood, distance, total_ea, vvol_carea, vvol_trkea, vvol_busea, speed_ea, count(*) total_tickets "
                            'from ticket_data t1 join address_data t2 on t1.address = t2.address '
                            ' join street_volume_data t3 on t2.lineid = t3.lineid '
                            " Where ViolationDesc = 'RES/OT' group by t2.lineid", conn)
@@ -64,7 +71,6 @@ def show_street_map(streets):
     title = 'ResOTStreets.png'
     if storefigs == 'Y':
         plt.savefig(image_loc + title)
-    plt.show()
     return
 
 
@@ -119,29 +125,40 @@ def show_street_plots(streets):
 
 
 
-        choice = input('Would you like to see the scatter plot of street volume vs. tickets?')
+    choice = input('Would you like to see the scatter plot of street volume vs. tickets?')
 
-        if choice == 'Y':
-            plt.figure(figsize = (15, 15))
-            plt.scatter(x = np.log(streets['total_ea']), y = streets['total_tickets'])
-            plt.xlabel('Total Volume(log)')
-            plt.ylabel('Total Tickets')
-            plt.title('Scatter Plot of Street Volume vs. Total Tickets')
-            title = 'VolvsTix.png'
-            if storefigs == 'Y':
-                plt.savefig(image_loc + title)
-            plt.show()
+    if choice == 'Y':
+        fig = plt.figure(figsize = (15, 15))
+        ax = fig.add_subplot(1,1,1)
+        ax.scatter(x = np.log(streets['total_ea']), y = streets['total_tickets'])
+        ax.set_xlabel('Total Volume(log)')
+        ax.set_ylabel('Total Tickets')
+        ax.set_title('Scatter Plot of Street Volume vs. Total Tickets')
+        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
+        ax.set_axisbelow(True)
+        ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
+        title = 'VolvsTix.png'
+        if storefigs == 'Y':
+            plt.savefig(image_loc + title)
+        plt.show()
 
 
-            plt.figure(figsize = (15, 15))
-            plt.scatter(x = np.log(streets['total_ea']), y = streets['tickpermile'])
-            plt.title('Scatter Plot of Total Street Volume vs. Total Tickers per Mile per Year ')
-            title = 'VolvsTixMile.png'
-            if storefigs == 'Y':
-                plt.savefig(image_loc + title)
-            plt.show()
 
-        return
+        fig = plt.figure(figsize = (15, 15))
+        ax = fig.add_subplot(1,1,1)
+        ax.scatter(x = np.log(streets['total_ea']), y = streets['tickpermile'])
+        ax.set_xlabel('Total Volume(log)')
+        ax.set_ylabel('Total Tickets')
+        ax.set_title('Scatter Plot of Street Volume vs. Total Tickets per mile per mile')
+        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
+        ax.set_axisbelow(True)
+        ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
+        title = 'VolvsTixMile.png'
+        if storefigs == 'Y':
+            plt.savefig(image_loc + title)
+        plt.show()
+
+    return
 
 
 
@@ -181,7 +198,7 @@ def two_pop_test(streets):
 
 
 
-def split_pop_test(streets, pops, fitted, baseline = False):
+def split_pop_test(streets, pops, fitted, modelname, baseline = False):
     """This function will take the street data, sort it by street volume, and bootstrap simulated data that will
 
     Parameters
@@ -243,14 +260,17 @@ def split_pop_test(streets, pops, fitted, baseline = False):
     plt.xlabel('Tickets per mile per year')
     plt.ylabel('Frequency')
     if fitted == True:
-        plt.title('Frequency curves of sampled street populations sorted by OLS fitted values ')
+        plt.title('Frequency curves of sampled street populations sorted by OLS fitted values,  ' + modelname)
     else:
         plt.title('Frequency curves of sampled street populations sorted by total volume ')
     plt.show()
+    title = re.sub('/W', '', str(pops) + modelname + '.png')
+    if storefigs == 'Y':
+        plt.savefig(image_loc + title)
     return
 
 
-def diagnostic_plots(model_fit):
+def diagnostic_plots(model_fit, streets, model_name, modelsave):
     model_fitted_y = model_fit.fittedvalues
 
     # residuals
@@ -310,7 +330,12 @@ def diagnostic_plots(model_fit):
     axarr[1,1].set_xlim(0,0.1)
     axarr[1,1].set_xlabel('Leverage')
     axarr[1,1].set_ylabel('Standardized Residuals')
+    fig.suptitle('Diagnostic plots for ' + model_name)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
+    title = modelsave
+    if storefigs == 'Y':
+        plt.savefig(image_loc + title)
 
     return
 
@@ -328,7 +353,6 @@ def feature_analysis(streets):
 
     street_data = pd.read_sql_query('Select lineid, vvol_trkea, vvol_carea, vvol_busea, speed_ea from street_volume_data', conn)
 
-    streets = streets.merge(street_data, left_on = 'lineid', right_on = 'lineid')
 
     print("Creating model with buses, trucks, cars, and freeflow speed. ")
     columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
@@ -344,25 +368,26 @@ def feature_analysis(streets):
 
     choice = input('Would you like to bootstrap some population means based off fitted values?')
     streets['fitted'] =  res.fittedvalues
-    streets.sort_values(by = 'fitted', inplace = True)
+    streets.sort_values(by = 'fitted', ascending = False, inplace = True)
     if choice == 'Y':
-        choice = input('How Many Populations?')
-        while count < 0 and done != "Y":
-            count = input("How many populations would you like?")
+        done = 'N'
+        while done != "Y":
+            count = int(input("How many populations would you like?"))
             if count > 0:
-                chart = split_pop_test(streets, count, True)
+                chart = split_pop_test(streets, count, True,'initial model')
             else:
                 print('Invalid input, put an integer')
             done = input('Are you done? (Y or N)')
 
 
-    print('Would you like to see some diagnostic plots of the model?')
+    choice = input('Would you like to see some diagnostic plots of the model?')
     if choice == 'Y':
-        diagnostic_plots(res)
+        diagnostic_plots(res, streets, 'initial model', 'initial_model.png')
 
+def log_feature_analysis(streets):
     print("Let's log fit the features and try again")
-
     df = streets
+    columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
     for column in columns:
         df[column] = df[column] + 0.01
 
@@ -375,52 +400,27 @@ def feature_analysis(streets):
     plt.tight_layout()
     plt.show()
 
-    print('Would you like to see some diagnostic plots of the model?')
-    if choice == 'Y':
-        diagnostic_plots(res)
+
 
     streets['fitted'] =  res.fittedvalues
-    streets.sort_values(by = 'fitted', inplace = True)
+    streets.sort_values(by = 'fitted',ascending = False , inplace = True)
 
     choice = input('Would you like to bootstrap some population means based off fitted values?')
     streets['fitted'] =  res.fittedvalues
-    streets.sort_values(by = 'fitted', inplace = True)
+    streets.sort_values(by = 'fitted', ascending = False, inplace = True)
     if choice == 'Y':
-        choice = input('How Many Populations?')
-        while count < 0 and done != "Y":
-            count = input("How many populations would you like?")
+        done = 'N'
+        while  done != "Y":
+            count = int(input("How many populations would you like?"))
             if count > 0:
-                chart = split_pop_test(streets, count, True, baseline = True)
+                chart = split_pop_test(streets, count, True, 'log model')
             else:
                 print('Invalid input, put an integer')
             done = input('Are you done? (Y or N)')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    choice = input('Would you like to see some diagnostic plots of the model?')
+    if choice == 'Y':
+        diagnostic_plots(res, streets, 'log fit model', 'logfitmodel.png')
 
 
 
@@ -453,18 +453,21 @@ def main():
         done = 'N'
         while count < 0 and done != "Y":
             count = int(input("How many populations would you like?"))
-            split_pop_test(streets, count, False)
+            split_pop_test(streets, count, False, 'base model')
             done = input('Are you done? (Y or N)')
 
 
     choice = input('Would you like to explore more features?')
-    print('Beginning feature analysis')
-
     if choice == 'Y':
+        print('Beginning feature analysis')
         feature_analysis(streets)
 
+    choice = input('Would you like to log fit the features and try again?')
+    if choice == 'Y':
+        log_feature_analysis(streets)
 
 
+    print('You have completed the intial analysis')
 
 
 
