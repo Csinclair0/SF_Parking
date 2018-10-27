@@ -77,7 +77,13 @@ Once these tables were created, we now had a relational database that can be use
 (few interesting initial)
 First I did some exploratory analysis just to look for some interesting takeaways in the data, as well as ensure the data was processed properly and no major holes existed. There are quite a few graphs generated in the notebooks, but I'll highlight a few I found interesting.
 
-Ticket Type by Neighborhood
+![Tickets by Neighborhood](/reports/figures/explore/TickByNhood.png)
+
+![Street Clean By Hour](/reports/figures/explore/StreetCleanByHour.png)
+
+![TicketType Share by Nhood](/reports/figures/explore/SharebyHood.png)
+
+![Vehicle Type Share by Nhood](/reports/figures/explore/VehByNhood.png)
 
 Ticket Heat map
 
@@ -129,7 +135,8 @@ Once we've confirmed our theory that their is a link between street volume and t
 ![Initial Model](/reports/figures/analysis/Model_First.png)
 
 But I wanted to see if using this model would actually create some tangible results. So I re-indexed the streets, but using the fitted value to set their rank. We can then re-do our simulated experiment, and see if using this model to make our decisions would actually result in choosing the correct streets. Below is the result, splitting into 10 populations, and re-doing our bootstrapping analysis.
-![Initial Distributions](/reports/figures/analysis/Initial_Distirbutions.png)
+
+![Initial Distributions](/reports/figures/analysis/Initial_Distributions.png)
 
 The results are strong! There is a clear effect that the streets we fit to receive less tickets actually do. By using this model to identify our best streets, we can reduce the average number of tickets by up to 50%!! We also notice there is much less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in identifying. Let's take a deeper dive into the details of the model, with some diagnostic plots.
 ![Diagnostics](/reports/figures/analysis/Diagnostics_Original.png)
@@ -138,7 +145,7 @@ The Q-Q plot shows the relationship might not be as linear as we expected, so we
 ![Diagnostics](/reports/figures/analysis/Diagnostics_2nd.png)
 The resulting model had a slightly higher r-squared, indicating its a better fit. The diagnostic plots show there is still a a pattern in the residuals, however,  that we haven't completely eliminated. But it seems we have mitigated a few of our outliers. When re-running the experiment, the results seem to be pretty similar to before, with lower means and variability for the populations we look to identify.
 
-![Final OLS chart](/reports/figures/analysus/Final_OLS_WOPark.png)
+![Final OLS chart](/reports/figures/analysis/Final_OLS_WOPark.png)
 
 ## Initial Conclusion
 Although there is a significant degree of uncertainty and variability, we can create a model that will estimate the amount of residential overtime tickets per street per year, and those results will be directionally accurate. If we assume that all other factors are equal. We can reduce the amount of tickets by up to 18% by strictly parking at locations that we identify in the top 10% rather than guessing normally, and up to 37% less than if we were to choose one of the worst set of streets. The most contributing factors are freeflow speed, car volume, and bus volume.
@@ -170,7 +177,7 @@ In conclusion, we can take millions of records of ticket data, pair it with stre
 ## Question 2:
 How long can I park without getting a ticket?
 
-This one is much more theoretical, and thought I would try to solve as a little extra since I had some data available. In reality, I would need some more data to be able to answer this concretely, such as information on how long each car was parked, as well as information on cars that didn't get tickets.  However, I can still try and take a stab at it using some high level numbers.
+This one is much more theoretical, and I thought I would try to solve as a little extra since I had some data available. In reality, I would need more data to be able to answer this concretely, such as information on how long each car was parked, as well as information on cars that didn't get tickets.  However, I can still try and take a stab at it using some high level numbers.
 
 First, lets clarify the assumptions and process for estimating this probability. There are two parts we must solve in this question. The first part is the probability that they come down the street you are parked in. This probability will increase with time. The second includes the probability they come back, and in what time frame.
 
@@ -192,14 +199,14 @@ On each ticket, they write down what time they first came and marked your car, a
 
 Now using some Bayesian methodologies, we can combine these two distributions and create one probability distribution over time for the average SF Street. Below is a cumulative Distribution Plot of receiving a residential overtime ticket versus time at that spot.
 
-CDF
 
 However, this study was based around the variability of arrival rates by streets, so lets use the arrival rates from our least and most patrolled streets, categorized from our regression model.
 
-Let's modify our arrival rate using the ratios of our best fitted and worst fitted populations, and plot all three.
+Let's plot the the probability of each population segment and see there differences. Here we have to assume the arrival rate is directly proportional to how many tickets per spot are given out.
 
+![Ticket CDF](reports/figures/analysis/CDF_Ticket.png)
 
-3 CDF
+Now let's only look at the average, worst, and best, and add confidence intervals.
 
 ## Street Cleaning Analysis
 As you can see in the exploratory notebook, residential overtime tickets are not my only foe. Street Cleaning actually makes up for an overwhelming majority of the tickets that are given out. I have a few things I would like to test:

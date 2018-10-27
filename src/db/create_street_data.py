@@ -11,11 +11,11 @@ import math
 import warnings
 warnings.filterwarnings('ignore')
 
+raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
+proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
 
 global conn
-conn = sqlite3.connect('SF_Parking.db')
-raw_loc = '/home/colin/Desktop/Parking_Project/data/raw/'
-proc_loc = '/home/colin/Desktop/Parking_Project/data/processed/'
+conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
 
 replacements = ['[^0-9a-zA-Z\s]', '^0+']
 streetnums = {'1':'ST', '2': 'ND', '3': 'RD', '4': 'TH', '5': 'TH', '6': 'TH', '7': 'TH', '8': 'TH', '9': 'TH', '0': 'TH'}
@@ -193,7 +193,7 @@ def process_volume():
     streetsweeping.drop_duplicates(subset = subset, inplace = True)
 
 
-    print('matching unfound street sweeping records')
+    print('matching unfound street sweeping links')
     unfound_cnn = unfound[['cnn', 'geometry', 'streetname']]
     unfound_cnn.drop_duplicates(subset =['cnn'], inplace = True)
     tqdm.pandas()
@@ -213,7 +213,7 @@ def process_volume():
 
 
 
-def pair_address(streetsweeping):
+def pair_address(streetsweeping, streetvolume):
     """Merge all addresses with a street cleaning link, since we can filter on their numbers. Then we can assign it to a street volume link. For any that we can't directly find, we'll us our function to locate the one closest, using coordinates and shortest distance.
 
     Parameters
@@ -246,6 +246,7 @@ def pair_address(streetsweeping):
     tqdm.pandas()
     gdf['lineid'] = gdf.progress_apply(lambda x: find_closest_point(x['geometry'], x['street'], streetvolume), axis = 1)
     addresses = addresses.append(gdf)
+    addresses = addresses[['address', 'lat', 'lon', 'lineid', 'nhood', 'number', 'street', 'streetname']]
     addresses.to_sql('address_data', conn, if_exists = 'replace')
     return
 
@@ -263,7 +264,7 @@ def pair_parking(streetvolume):
     none
         stored in SQL
     """
-    gpd.read_file('/home/colin/Desktop/Parking_Project/data/raw/SFpark_OnStreetParkingCensus_201404/Sfpark_OnStreetParkingCensus_201404/Sfpark_OnStreetParkingCensus_201404.shp')
+    gpd.read_file(raw_loc + '/onstreet_parking/Sfpark_OnStreetParkingCensus_201404.shp')
     spaces.crs = {'init': 'epsg:2227'}
     spaces = spaces.to_crs(epsg =4326)
     spaces = spaces[spaces.PRKNG_SPLY < 1000]
@@ -297,7 +298,7 @@ def main():
     print(' Finished Street Data Creation')
 
     print('Pairing Addresses with Street Data')
-    pair_address(streetsweeping)
+    pair_address(streetsweeping, streetvolume)
     print('Finished Pairing Addresses')
 
     print('Parking Parking')

@@ -7,18 +7,19 @@ import datetime as dt
 import time
 from scipy import stats
 import sqlite3
-import geopands as gpd
+import geopandas as gpd
 import seaborn as sns
 import statsmodels.api as sm
 from statsmodels.graphics.gofplots import ProbPlot
 
 
-raw_loc = '/home/colin/Desktop/Parking_Project/data/raw/'
-proc_loc = '/home/colin/Desktop/Parking_Project/data/processed/'
+raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
+proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
+image_loc = '/home/colin/Desktop/SF_Parking/reports/figures/analysis/'
 
 
 global conn
-conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
+conn = sqlite3.connect(raw_loc + 'SF_Parking.db')
 
 
 def create_street_data():
@@ -31,10 +32,10 @@ def create_street_data():
 
     """
     #Lets categorize addresses by our street volume
-    streets = result_query("Select distinct t2.lineid, nhood, distance, total_ea, vvol_busea, speed_ea, count(*) total_tickets "
+    streets = pd.read_sql_query("Select distinct t2.lineid, nhood, distance, total_ea, vvol_busea, speed_ea, count(*) total_tickets "
                            'from ticket_data t1 join address_data t2 on t1.address = t2.address '
                            ' join street_volume_data t3 on t2.lineid = t3.lineid '
-                           " Where ViolationDesc = 'RES/OT' group by t2.lineid")
+                           " Where ViolationDesc = 'RES/OT' group by t2.lineid", conn)
     c = conn.cursor()
     c.execute('Select Max(TickIssueDate), Min(TickIssueDate) from ticket_data')
     totaldays = c.fetchone()
@@ -49,7 +50,7 @@ def create_street_data():
 
 
 def show_street_map(streets):
-    streetvolume = gpd.read_file(proc_folder + './final_streets/SF_Street_Data.shp')
+    streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
     streetvolume = streetvolume.to_crs(epsg = 4326)
     times = ['am', 'pm', 'ev', 'ea']
     for time in times:
@@ -57,10 +58,13 @@ def show_street_map(streets):
 
     df = streetvolume.merge(streets, left_on = 'lineid', right_on = 'lineid')
 
-    df.plot(figsize = (20,20), cmap = 'RdYlGn', column = 'tickperspot')
-
+    df.plot(figsize = (20,20), color = 'Red')
+    plt.title('Streets identified as Residential Overtime Areas')
     plt.show()
-
+    title = 'ResOTStreets.png'
+    if storefigs == 'Y':
+        plt.savefig(image_loc + title)
+    plt.show()
     return
 
 
@@ -108,7 +112,11 @@ def show_street_plots(streets):
         axplots[1].set_xlabel('Total Tickets(log)')
         axplots[1].plot(ticks, tick_normals.pdf(ticks))
         fig.suptitle('Feature Normality Plots')
+        title = 'FeatureNormality.png'
+        if storefigs == 'Y':
+            plt.savefig(image_loc + title)
         plt.show()
+
 
 
         choice = input('Would you like to see the scatter plot of street volume vs. tickets?')
@@ -119,12 +127,18 @@ def show_street_plots(streets):
             plt.xlabel('Total Volume(log)')
             plt.ylabel('Total Tickets')
             plt.title('Scatter Plot of Street Volume vs. Total Tickets')
+            title = 'VolvsTix.png'
+            if storefigs == 'Y':
+                plt.savefig(image_loc + title)
             plt.show()
 
 
             plt.figure(figsize = (15, 15))
             plt.scatter(x = np.log(streets['total_ea']), y = streets['tickpermile'])
-            plt.title('Scatter Plot of Total Street Volume vs. Total Tickers per Mile per Year )
+            plt.title('Scatter Plot of Total Street Volume vs. Total Tickers per Mile per Year ')
+            title = 'VolvsTixMile.png'
+            if storefigs == 'Y':
+                plt.savefig(image_loc + title)
             plt.show()
 
         return
@@ -189,7 +203,7 @@ def split_pop_test(streets, pops, fitted, baseline = False):
     stds = {}
     totalsize = streets.shape[0]
     #create baseline curve
-    if baseline = True:
+    if baseline == True:
         for j in np.arange(1,1000):
             sample.append(df['tickpermile'].sample(n = 20).median())
 
@@ -197,7 +211,7 @@ def split_pop_test(streets, pops, fitted, baseline = False):
 
         means['base'] = sample.mean()
         stds['base'] = sample.std()
-        normals = norm(loc = means['base'], scale = stds['base'])
+        normals = stats.norm(loc = means['base'], scale = stds['base'])
         x = np.linspace(normals.ppf(0.01),
                     normals.ppf(0.99),
                     100)
@@ -218,16 +232,17 @@ def split_pop_test(streets, pops, fitted, baseline = False):
 
         means[i] = sample.mean()
         stds[i] = sample.std()
-        normals = norm(loc = means[i], scale = stds[i])
+        normals = stats.norm(loc = means[i], scale = stds[i])
 
         x = np.linspace(normals.ppf(0.01),
                             normals.ppf(0.99),
                             100)
-        labelstr = str(i * 10) + '%'
+        labelstr = 'population' + str(i)
         ax = plt.plot(x, normals.pdf(x), label = labelstr, color =  plt.cm.RdYlGn(i/10))
     plt.legend( loc = 0)
     plt.xlabel('Tickets per mile per year')
-    if fitted = True:
+    plt.ylabel('Frequency')
+    if fitted == True:
         plt.title('Frequency curves of sampled street populations sorted by OLS fitted values ')
     else:
         plt.title('Frequency curves of sampled street populations sorted by total volume ')
@@ -311,7 +326,7 @@ def feature_analysis(streets):
 
     """
 
-    street_data = pd.read_sql_query('Select lineid, vvol_trkea, vvol_carea, vvol_busea, speed_ea', conn)
+    street_data = pd.read_sql_query('Select lineid, vvol_trkea, vvol_carea, vvol_busea, speed_ea from street_volume_data', conn)
 
     streets = streets.merge(street_data, left_on = 'lineid', right_on = 'lineid')
 
@@ -345,7 +360,7 @@ def feature_analysis(streets):
     if choice == 'Y':
         diagnostic_plots(res)
 
-    print("Let's log fit the features and try again".)
+    print("Let's log fit the features and try again")
 
     df = streets
     for column in columns:
@@ -412,7 +427,8 @@ def feature_analysis(streets):
 
 def main():
     print("Welcome to the initial analyis.")
-
+    global storefigs
+    storefigs = input('Would you like to store photos in the project folder?(Y or N)')
     streets = create_street_data()
     choice = input("Would you like to see a map of all the streets we've identified as Residential Overtime Areas?(Y or N)")
     if choice == 'Y':
@@ -436,12 +452,8 @@ def main():
         count = -1
         done = 'N'
         while count < 0 and done != "Y":
-            count = input("How many populations would you like?")
-            if count > 0:
-                chart = split_pop_test(streets, count, False)
-                chart.title()
-            else:
-                print('Invalid input, put an integer')
+            count = int(input("How many populations would you like?"))
+            split_pop_test(streets, count, False)
             done = input('Are you done? (Y or N)')
 
 

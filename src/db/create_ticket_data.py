@@ -16,8 +16,8 @@ import math
 import warnings
 warnings.filterwarnings('ignore')
 
-raw_loc = '/home/colin/Desktop/Parking_Project/data/raw/'
-proc_loc= '/home/colin/Desktop/Parking_Project/data/processed/'
+raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
+proc_loc= '/home/colin/Desktop/SF_Parking/data/processed/'
 
 
 def create_db():
