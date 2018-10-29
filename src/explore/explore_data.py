@@ -11,37 +11,40 @@ import re
 import geopandas as gpd
 import sqlite3
 import folium
+from folium import plugins
+from tqdm import tqdm
 from shapely.geometry import Point
 import webbrowser, os
 import mplleaflet
-
+tqdm.pandas()
 
 
 raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
 proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
 image_loc = '/home/colin/Desktop/SF_Parking/reports/figures/explore/'
 map_loc = '/home/colin/Desktop/SF_Parking/reports/maps/'
-#plt.style.use('fivethirtyeight')
 mpl.rcParams['savefig.bbox'] = 'tight'
 mpl.rcParams['figure.autolayout'] = True
 mpl.rc('xtick', labelsize = 8 )
 
 
 global conn
-conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
+conn = sqlite3.connect(raw_loc + 'SF_Parking.db')
 
 
 
 
-def data_by_meter(storefigs, address_data):
+def data_by_meter(address_data, storefigs):
     """Function to plot out average tickets per meter for each neighborhood
 
     Returns
     -------
     plot.
     """
+    meters = pd.read_sql_query("Select TickMeter, count(*) as total_tickets  from ticket_data where TickMeter not in ('None', '0')  group by TickMeter", conn)
+    meters['valid'] = meters['TickMeter'].apply(lambda x: 0 if len(re.findall('[1-9]', str(x))) == 0  else 1 )
+    meters = meters[meters.valid == 1]
     meter_address = pd.read_sql_query('Select TickMeter, address, count(*) num from ticket_data group by TickMeter, address', conn)
-    meter_address = meter_address[meter_address.address.isin(address_data['address'])]
     meter_address.sort_values(by = 'num', ascending = False)
     meter_address.drop_duplicates(subset = 'TickMeter')
     meters = meters.merge(meter_address, left_on = 'TickMeter', right_on = 'TickMeter')
@@ -49,6 +52,9 @@ def data_by_meter(storefigs, address_data):
     plt.figure(figsize = (10,6))
     ax = meters.merge(address_data, left_on = 'address', right_on = 'address').groupby(by = 'nhood')['total_tickets'].mean().plot(kind = 'bar')
     ax.set_title('Average Tickets per Parking Meter by Neighborhood')
+    ax1 = plt.axes()
+    ax1.xaxis.set_label_text('foo')
+    ax1.xaxis.label.set_visible(False)
     plt.show()
     title = 'MetbyNhood.png'
     if storefigs == 'Y':
@@ -70,7 +76,7 @@ def load_data():
     ticket_data = pd.read_sql_query("Select  * from ticket_data " ,con = conn, parse_dates = ['TickIssueDate'])
     address_data = pd.read_sql_query('Select * from address_data', conn)
     ticket_data = ticket_data.merge(address_data, left_on = 'address', right_on = 'address')
-    return ticket_data
+    return ticket_data, address_data
 
 
 def generate_plots(ticket_data, storefigs):
@@ -284,12 +290,13 @@ def generate_plots(ticket_data, storefigs):
     plt.show()
 
 
-
-    choice = input('Would you like to generate a chart by neighborhood, plotting meter success?')
+    choice = input('Would you like to generate a chart by neighborhood, plotting meter success?(Y or N)')
     if choice == 'Y':
-        data_by_meter(storefigs, address_data)
+        data_by_meter( address_data, storefigs)
 
-    return
+
+
+
 
 
 def create_ticket_map(lic_plate, ticket_data):
@@ -304,6 +311,7 @@ def create_ticket_map(lic_plate, ticket_data):
     folium map with markers.
 
     """
+    print('Creating ticket map')
     tickets = ticket_data[ticket_data.TickRPPlate == lic_plate]
 
     if (tickets.shape[0] > 0):
@@ -316,7 +324,10 @@ def create_ticket_map(lic_plate, ticket_data):
         m.save(filename)
         webbrowser.open('file://' + os.path.realpath(filename))
         time.sleep(20)
-    return "No Tickets Found with that License Plate. Try Mine! '7XCS244'"
+        return
+    else:
+        print("No Tickets Found with that License Plate. Try Mine! '7XCS244'")
+        return
 
 
 
@@ -334,19 +345,39 @@ def create_heatmap_query(sql_add):
 
 
     """
-    df = pd.read_sql_query('Select lat, lon from ticket_data t1 join address_data t2 on t1.address = t2.address '
+    print('Creating heatmap')
+    try:
+        df = pd.read_sql_query('Select lat, lon from ticket_data t1 join address_data t2 on t1.address = t2.address '
                      "where " + sql_add, conn)
+    except:
+        print('Invalid Query')
+        return
     if df.shape[0] > 50000:
         df = df.sample(n = 50000)
     ticketarr = df[['lat', 'lon']].as_matrix()
     m = folium.Map([37.7749, -122.4194], zoom_start = 12)
-    m.add_children(folium.plugins.HeatMap(ticketarr, radius = 8))
+    m.add_children(plugins.HeatMap(ticketarr, radius = 8))
     filename = map_loc + re.sub('[\W]', '', sql_add)+ ".html"
     m.save(filename)
     webbrowser.open('file://' + os.path.realpath(filename))
     time.sleep(20)
     return
 
+
+def project_to_line(lineid, streetvolume, point):
+    df = streetvolume[streetvolume.lineid == lineid]
+    line = df['geometry'].iloc[0]
+    x = np.array(point.coords[0])
+
+    u = np.array(line.coords[0])
+    v = np.array(line.coords[len(line.coords)-1])
+
+    n = v - u
+    n /= np.linalg.norm(n, 2)
+
+    npoint = u + n*np.dot(x - u, n)
+    npoint = Point(npoint[0], npoint[1])
+    return npoint
 
 
 def volume_maps(ticket_data):
@@ -364,8 +395,10 @@ def volume_maps(ticket_data):
         chart of volume and tickets
 
     """
+    print('Creating Volume Map')
     choice = int(input('How many tickets would you like to add?'))
     streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
+    choice2 = input('Would you like to project the address data onto the street?(Y or N)')
     streetvolume = streetvolume.to_crs(epsg = 4326)
     times = ['am', 'pm', 'ev', 'ea']
     for time in times:
@@ -379,6 +412,9 @@ def volume_maps(ticket_data):
         df = df.drop(['lon', 'lat'], axis=1)
         crs = {'init': 'epsg:4326'}
         gdf = gpd.GeoDataFrame(df, crs=crs, geometry=geometry)
+        if choice2 == 'Y':
+            print('Projecting Addresses to Street')
+            gdf['geometry'] = gdf.progress_apply(lambda x: project_to_line(x['lineid'], streetvolume, x['geometry']), axis = 1)
         gdf.plot(ax = ax, marker = "*", color='black', markersize=2);
     filename = (map_loc + 'VolumeMap.html')
     try:
@@ -395,7 +431,7 @@ def volume_maps(ticket_data):
 
 
 
-def colored_ticket_map(ticket_data):
+def colored_ticket_map(ticket_data, address_data):
     """Function to plot volume maps, while coloring streets using colormap. We'll also add tickets if you user requests.
 
     Parameters
@@ -410,9 +446,11 @@ def colored_ticket_map(ticket_data):
         chart of volume and tickets
 
     """
+    print('Creating Ticket Map')
     colordict = {'STR CLEAN': 'cyan', 'RES/OT': 'green', 'MTR OUT DT': 'red', 'DRIVEWAY': 'orange', 'DBL PARK':'blue'}
     print(colordict)
     choice = int(input('How many tickets would you like to add?'))
+    choice2 = input('Would you like to project the address data onto the street?(Y or N)')
     if choice > 0:
         df = ticket_data.sample(n = choice)
         df['color'] = df['ViolationDesc'].apply(lambda x: colordict.get(x, 'magenta'))
@@ -421,6 +459,9 @@ def colored_ticket_map(ticket_data):
         df = df.drop(['lon', 'lat'], axis=1)
         crs = {'init': 'epsg:4326'}
         gdf = gpd.GeoDataFrame(df, crs=crs, geometry=geometry)
+        if choice2 == 'Y':
+            print('Projecting Addresses to Street')
+            gdf['geometry'] = gdf.progress_apply(lambda x: project_to_line(x['lineid'], streetvolume, x['geometry']), axis = 1)
         ax = gdf.plot( marker = "*", color=colors, markersize=2);
     filename = (map_loc + 'TicketMap.html')
     try:
@@ -437,11 +478,12 @@ def colored_ticket_map(ticket_data):
 
 def main():
     print('Loading Data in usable form for analysis')
-    ticket_data = load_data()
+    ticket_data, address_data = load_data()
     storefigs = input('Would you like to save the figures in the project folder?(Y or N)')
-    choice = input('Welcome to the Exploratory Section. You wanna See some charts? Cause I got charts.(Y or N)')
+    choice = input('Welcome to the Exploratory Section. You wanna See some charts? We got plenty.(Y or N)')
     if choice == 'Y':
         generate_plots(ticket_data, storefigs)
+
 
     choice = input('Would you like to look up some license plates? (Y or N)')
     if choice == 'Y':

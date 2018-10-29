@@ -87,17 +87,17 @@ Streets with higher volumes of traffic get less tickets.
 Now for the main event. Let's use our finished sql database to associate the total number of residential overtime tickets associated with each street link. Then we can see if there is any significant differences between streets that have higher volumes. In order to make a 'fair' comparison by street, we'll convert the total tickets into total tickets per linear mile per year, using the distance of the street link.
 We'll create some high level plots to see if we can notice the effect we're looking for, before doing any specific tests. We'll also test the normality of our data. Both Street Volume and Total Tickets were best normalized by log-fitting the data. However, this does not eliminate that a large portion of the streets do not show any volume at all.
 
-![Street Normality](/reports/figures/analysis/streetnormality.png)
+![Street Normality](/reports/figures/analysis/initial/streetnormality.png)
 
 Let's also look at the scatter plot of total tickets vs street volume.
 
-![Volume Scatter Plot](/reports/figures/analysis/VolumeScatter.png)
+![Volume Scatter Plot](/reports/figures/analysis/initial/VolumeScatter.png)
 
 At first, it visually appears there is a trend declining as street volume increases. However,it is noticeable that there is still a large portion of the data that remains now, and does not follow the trend.
 
 We'll also create a new measure,tickets per mile per year (which I'll just refer to as tickets per mile), which accounts for the total distance of the street link as well as the number of tickets. This will attempt to account for streets that are longer and will be unbias in the amount of parking spots available. This measure also needed to be log-fit to normalize the data.  The first test will be to split the data right down the middle, into two populations. The higher volume streets and the lower volume streets. We'll compare the population means and see if there is any difference, then we'll run a paired t-test and see if the difference is significant.
 
-![Volume Scatter Plot](/reports/figures/analysis/BoxPlot_Test.png)
+![Volume Scatter Plot](/reports/figures/analysis/initial/BoxPlot_Test.png)
 
 The two populations don't seem to have major differences at a high level view. We do notice slightly more variability in the higher population, and more extremely low outliers in the lower. The t-test comes back as insignificant with a value of .591, so we cannot reject the hypothesis that they have equal means. In fact, the average for the lower volume streets is actually about 4% lower.
 
@@ -105,21 +105,21 @@ Because we'd like to see if this is a practical rule of thumb we can use in ever
 
 We're going to split the population into four groups, or quartiles, by their rank in street volume, and run this test. Here is when we start to notice that it is the highest quartile that seems to have a lower average of tickets per mile.
 
-![Quartile Plot](/reports/figures/analysis/vol_4Pops.png)
+![Quartile Plot](/reports/figures/analysis/initial/vol_4Pops.png)
 
 I decided to break down populations even more granular, into 10 populations by order of their street volume rank. In this chart, we notice an even stronger effect in the higher populations than those of the more average. Our top 3 populations are all some of the lowest. We also notice a lower group in terms of street volume shows up with lower tickets per mile as well.  
 
-![10 population Plot](/reports/figures/analysis/vol_10Pops.png)
+![10 population Plot](/reports/figures/analysis/initial/vol_10Pops.png)
 
 By comparing the population means of the highest group and the most average(middle 40-50%), we find the ratio of average tickets is roughly 75%!
 
 Once we've confirmed our theory that their is a link between street volume and total tickets, we can try to fit a model that will be a little more specific. Let's see if we can include any more of the features that were available in the street volume data to create a better model. I created an Ordinary Least Squares Regression model that split out the volume into cars, trucks, and buses,as well as freeflow speed. The results showed there is a significant effect from each variable. However, it can't really describe much of the variability, with an extremely low r-squared value. It also showed buses and speed we're a little more significant of variables.
 
-![Initial Model](/reports/figures/analysis/Model_First.png)
+![Initial Model](/reports/figures/analysis/initial/initial_model.png)
 
 But I wanted to see if using this model would actually create some tangible results. So I re-indexed the streets, but using the fitted value to set their rank. We can then re-do our simulated experiment, and see if using this model to make our decisions would actually result in choosing the correct streets. Below is the result, splitting into 10 populations, and re-doing our bootstrapping analysis.
 
-![Initial Distributions](/reports/figures/analysis/Initial_Distributions.png)
+![Initial Distributions](/reports/figures/analysis/initial/.png)
 
 The results are strong! There is a clear effect that the streets we fit to receive less tickets actually do. By using this model to identify our best streets, we can reduce the average number of tickets by up to 50%!! We also notice there is much less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in identifying. Let's take a deeper dive into the details of the model, with some diagnostic plots.
 ![Diagnostics](/reports/figures/analysis/Diagnostics_Original.png)

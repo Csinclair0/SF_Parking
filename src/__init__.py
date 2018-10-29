@@ -34,7 +34,7 @@ def main():
         print("Importing and processing data")
         print("")
         db.create_ticket_data.main()
-        db.create_street_data.main()
+        #db.create_street_data.main()
 
 
 

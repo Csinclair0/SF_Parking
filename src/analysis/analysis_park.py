@@ -341,7 +341,7 @@ def diagnostic_plots(model_fit, streets, model_name, modelsave):
 
 
 
-def feature_analysis(streets):
+def feature_analysis(streets, parking):
     """Analysis section of exploring more features. We'll add more features and run some linear regressions.
 
     Returns
@@ -355,7 +355,10 @@ def feature_analysis(streets):
 
 
     print("Creating model with buses, trucks, cars, and freeflow speed. ")
-    columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
+    if parking == True:
+        columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea', 'parkpermile', 'distance', 'oneway']
+    else:
+        columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
 
     model = sm.OLS.from_formula('tickpermile ~' + '+'.join(columns) , streets)
     res = model.fit()
@@ -364,6 +367,12 @@ def feature_analysis(streets):
     plt.axis('off')
     plt.tight_layout()
     plt.show()
+    if parking == True:
+        imagetitle = 'initialmodelparking.png'
+    else:
+        imagetitle = 'intialmodel.png'
+    if storefigs = True:
+        plt.save(image_loc + imagetitle)
 
 
     choice = input('Would you like to bootstrap some population means based off fitted values?')
@@ -382,16 +391,26 @@ def feature_analysis(streets):
 
     choice = input('Would you like to see some diagnostic plots of the model?')
     if choice == 'Y':
-        diagnostic_plots(res, streets, 'initial model', 'initial_model.png')
+        if parking == True:
+            title = 'initial model with parking included'
+            imagetitle = 'initialmodelparkingdiagnostics.png'
+        else:
+            title = 'initial model'
+            imagetitle = 'intialmodeldiagnostics.png'
+        diagnostic_plots(res, streets, title, imagetitle)
 
-def log_feature_analysis(streets):
+
+
+def log_feature_analysis(streets, parking):
     print("Let's log fit the features and try again")
     df = streets
     columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
     for column in columns:
         df[column] = df[column] + 0.01
-
-    formstring = 'tickpermile ~np.log(vvol_trkea)+np.log(vvol_carea)+np.log(vvol_busea)+np.log(speed_ea)'
+    if parking == True:
+        formstring = 'tickperspot ~np.log(vvol_trkea)+np.log(vvol_carea)+np.log(vvol_busea)+np.log(speed_ea) + np.log(parkpermile) + oneway'
+    else:
+        formstring = 'tickpermile ~np.log(vvol_trkea)+np.log(vvol_carea)+np.log(vvol_busea)+np.log(speed_ea)'
     model = sm.OLS.from_formula(formstring , streets)
     res = model.fit()
     plt.rc('figure', figsize=(12, 7))
@@ -420,8 +439,13 @@ def log_feature_analysis(streets):
 
     choice = input('Would you like to see some diagnostic plots of the model?')
     if choice == 'Y':
-        diagnostic_plots(res, streets, 'log fit model', 'logfitmodel.png')
-
+        if parking == True:
+            title = 'log model with parking included'
+            imagetitle = 'logmodelparking.png'
+        else:
+            title = 'log model'
+            imagetitle = 'logmodel.png'
+        diagnostic_plots(res, streets, title, imagetitle)
 
 
 
@@ -460,15 +484,19 @@ def main():
     choice = input('Would you like to explore more features?')
     if choice == 'Y':
         print('Beginning feature analysis')
-        feature_analysis(streets)
+        feature_analysis(streets, False)
 
     choice = input('Would you like to log fit the features and try again?')
     if choice == 'Y':
-        log_feature_analysis(streets)
+        log_feature_analysis(streets, False)
 
 
     print('You have completed the intial analysis')
 
+    choice = input('Would you like to include parking?')
+
+    if choice == 'Y':
+        streets = create_street
 
 
 

@@ -19,7 +19,7 @@ from statsmodels.graphics.gofplots import ProbPlot
 
 raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
 proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
-image_loc = '/home/colin/Desktop/SF_Parking/reports/figures/analysis/initial'
+image_loc = '/home/colin/Desktop/SF_Parking/reports/figures/analysis/initial/'
 
 mpl.rcParams['savefig.bbox'] = 'tight'
 mpl.rcParams['figure.autolayout'] = True
@@ -54,6 +54,45 @@ def create_street_data():
     streets['total_ea'] = streets['total_ea'] + 1
     streets['tickpermile'] = streets['total_tickets'] / (streets['distance']) / totalyears
     return streets
+
+def create_street_data_parking():
+    """Function to create all neccesary data to run analysis on street volume and ticket results.
+
+    Returns
+    -------
+    dataframe
+        dataframe of tickets.
+
+    """
+    #Lets categorize addresses by our street volume
+    streets = pd.read_sql_query("Select distinct t3.lineid, t3.streetname, nhood, distance, total_ea, vvol_carea, vvol_trkea, vvol_busea, speed_ea, oneway, count(*) total_tickets, park_supply "
+                       'from ticket_data t1 join address_data t2 on t1.address = t2.address '
+                       ' join street_volume_data t3 on t2.lineid = t3.lineid '
+                       " Where ViolationDesc = 'RES/OT'  group by t3.lineid", conn)
+    c = conn.cursor()
+    c.execute('Select Max(TickIssueDate), Min(TickIssueDate) from ticket_data')
+    totaldays = c.fetchone()
+    maxdate = time.strptime( totaldays[0], '%Y-%m-%d %H:%M:%S')
+    mindate = time.strptime( totaldays[1], '%Y-%m-%d %H:%M:%S')
+    totaldays = (time.mktime(maxdate) - time.mktime(mindate)) / (60*60*24)
+    totalyears = totaldays /365
+
+    streets['parkpermile'] = streets['park_supply'] / streets['distance']
+    streets_mean = streets[streets.park_supply > 0 ].groupby(by = ['nhood'], as_index = False)['parkpermile'].mean()
+    streets_1 = streets[streets.park_supply > 0 ]
+    streets_2 = streets[(streets.park_supply== 0) | (pd.isnull(streets.park_supply)) ]
+    streets_2 = streets_2.merge(streets_mean, left_on = 'nhood', right_on = 'nhood')
+
+    streets_2['park_supply'] = streets_2['parkpermile_y'] * streets_2['distance']
+    streets_2.rename(columns = {'parkpermile_y':'parkpermile'}, inplace = True)
+    streets_2.drop(columns =['parkpermile_x'], inplace = True)
+    streets = streets_1.append(streets_2)
+    streets['total_ea'] = streets['total_ea'] + 1
+
+    streets['total_ea'] = streets['total_ea'] + 1
+    streets['tickpermile'] = streets['total_tickets'] / (streets['distance']) / totalyears
+    return streets
+
 
 
 def show_street_map(streets):
@@ -138,9 +177,10 @@ def show_street_plots(streets):
         ax.set_axisbelow(True)
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
         title = 'VolvsTix.png'
+        plt.show()
         if storefigs == 'Y':
             plt.savefig(image_loc + title)
-        plt.show()
+
 
 
 
@@ -154,9 +194,39 @@ def show_street_plots(streets):
         ax.set_axisbelow(True)
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
         title = 'VolvsTixMile.png'
+        plt.show()
         if storefigs == 'Y':
             plt.savefig(image_loc + title)
-        plt.show()
+
+
+    return
+
+
+def show_street_plots_parking(streets):
+    """Short summary.
+
+    Parameters
+    ----------
+    streets : dataframe
+        created dataframe that includes all necessary analysis for street analysis.
+
+    Returns
+    -------
+    none
+
+    """
+
+
+
+        streets['tickperspot'] = streets['total_tickets'] / (streets['park_supply'] / 100) / totalyears
+        plt.figure(figsize = (15, 15))
+        plt.scatter(x = np.log(streets['total_ea']), y = streets['tickperspot'])
+        plt.title('Scatter Plot of Total Street Volume vs. Total Tickers per 100 spots per Year, Colored by Bus Volume')
+        plt.ylabel('Tickets per 100 spots per year')
+        plt.xlabel('Total Street Volume')
+        if storefigs == 'Y':
+            plt.savefig(image_loc + 'volvstickperspot.png')
+
 
     return
 
@@ -186,6 +256,8 @@ def two_pop_test(streets):
     plt.xticks(np.arange(1,3), labels = ('Lower Volume', 'Higher Volume'))
     plt.ylabel('Tickets per Mile (log)')
     plt.show()
+    if storefigs == 'Y':
+        plt.savefig(image_loc + 'boxplot.png')
 
     res = stats.ttest_ind(df_lowvol['tickpermile'], df_highvol['tickpermile'], equal_var = False)
 
@@ -196,9 +268,7 @@ def two_pop_test(streets):
 
 
 
-
-
-def split_pop_test(streets, pops, fitted, modelname, baseline = False):
+def split_pop_test(streets, pops, fitted, parking, modelname, baseline = False):
     """This function will take the street data, sort it by street volume, and bootstrap simulated data that will
 
     Parameters
@@ -222,7 +292,10 @@ def split_pop_test(streets, pops, fitted, modelname, baseline = False):
     #create baseline curve
     if baseline == True:
         for j in np.arange(1,1000):
-            sample.append(df['tickpermile'].sample(n = 20).median())
+            if parking == False
+                sample.append(df['tickpermile'].sample(n = 20).median())
+            else:
+                sample.append(df['tickperspot'].sample(n = 20).median())
 
         sample = np.array(sample)
 
@@ -243,7 +316,10 @@ def split_pop_test(streets, pops, fitted, modelname, baseline = False):
 
         sample = []
         for j in np.arange(1,1000):
-            sample.append(df['tickpermile'].sample(n = 20).median())
+            if parking == False
+                sample.append(df['tickpermile'].sample(n = 20).median())
+            else:
+                sample.append(df['tickperspot'].sample(n = 20).median())
 
         sample = np.array(sample)
 
@@ -257,14 +333,18 @@ def split_pop_test(streets, pops, fitted, modelname, baseline = False):
         labelstr = 'population' + str(i)
         ax = plt.plot(x, normals.pdf(x), label = labelstr, color =  plt.cm.RdYlGn(i/10))
     plt.legend( loc = 0)
-    plt.xlabel('Tickets per mile per year')
+    if parking == False:
+        plt.xlabel('Tickets per mile per year')
+    else:
+        plt.xlabel('Tickets per 100 spots per year')
     plt.ylabel('Frequency')
     if fitted == True:
         plt.title('Frequency curves of sampled street populations sorted by OLS fitted values,  ' + modelname)
     else:
         plt.title('Frequency curves of sampled street populations sorted by total volume ')
     plt.show()
-    title = re.sub('/W', '', str(pops) + modelname + '.png')
+    title =  str(pops) + modelname + '.png'
+    title = re.sub(" ", "", title)
     if storefigs == 'Y':
         plt.savefig(image_loc + title)
     return
@@ -330,6 +410,7 @@ def diagnostic_plots(model_fit, streets, model_name, modelsave):
     axarr[1,1].set_xlim(0,0.1)
     axarr[1,1].set_xlabel('Leverage')
     axarr[1,1].set_ylabel('Standardized Residuals')
+
     fig.suptitle('Diagnostic plots for ' + model_name)
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
@@ -340,8 +421,7 @@ def diagnostic_plots(model_fit, streets, model_name, modelsave):
     return
 
 
-
-def feature_analysis(streets):
+def feature_analysis(streets, parking):
     """Analysis section of exploring more features. We'll add more features and run some linear regressions.
 
     Returns
@@ -355,7 +435,10 @@ def feature_analysis(streets):
 
 
     print("Creating model with buses, trucks, cars, and freeflow speed. ")
-    columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
+    if parking == True:
+        columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea', 'parkpermile', 'distance', 'oneway']
+    else:
+        columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
 
     model = sm.OLS.from_formula('tickpermile ~' + '+'.join(columns) , streets)
     res = model.fit()
@@ -364,6 +447,12 @@ def feature_analysis(streets):
     plt.axis('off')
     plt.tight_layout()
     plt.show()
+    if parking == True:
+        imagetitle = 'initialmodelparking.png'
+    else:
+        imagetitle = 'intialmodel.png'
+    if storefigs = True:
+        plt.save(image_loc + imagetitle)
 
 
     choice = input('Would you like to bootstrap some population means based off fitted values?')
@@ -382,16 +471,26 @@ def feature_analysis(streets):
 
     choice = input('Would you like to see some diagnostic plots of the model?')
     if choice == 'Y':
-        diagnostic_plots(res, streets, 'initial model', 'initial_model.png')
+        if parking == True:
+            title = 'initial model with parking included'
+            imagetitle = 'initialmodelparkingdiagnostics.png'
+        else:
+            title = 'initial model'
+            imagetitle = 'intialmodeldiagnostics.png'
+        diagnostic_plots(res, streets, title, imagetitle)
 
-def log_feature_analysis(streets):
+
+
+def log_feature_analysis(streets, parking):
     print("Let's log fit the features and try again")
     df = streets
     columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
     for column in columns:
         df[column] = df[column] + 0.01
-
-    formstring = 'tickpermile ~np.log(vvol_trkea)+np.log(vvol_carea)+np.log(vvol_busea)+np.log(speed_ea)'
+    if parking == True:
+        formstring = 'tickperspot ~np.log(vvol_trkea)+np.log(vvol_carea)+np.log(vvol_busea)+np.log(speed_ea) + np.log(parkpermile) + oneway'
+    else:
+        formstring = 'tickpermile ~np.log(vvol_trkea)+np.log(vvol_carea)+np.log(vvol_busea)+np.log(speed_ea)'
     model = sm.OLS.from_formula(formstring , streets)
     res = model.fit()
     plt.rc('figure', figsize=(12, 7))
@@ -420,8 +519,13 @@ def log_feature_analysis(streets):
 
     choice = input('Would you like to see some diagnostic plots of the model?')
     if choice == 'Y':
-        diagnostic_plots(res, streets, 'log fit model', 'logfitmodel.png')
-
+        if parking == True:
+            title = 'log model with parking included'
+            imagetitle = 'logmodelparking.png'
+        else:
+            title = 'log model'
+            imagetitle = 'logmodel.png'
+        diagnostic_plots(res, streets, title, imagetitle)
 
 
 
@@ -429,6 +533,7 @@ def main():
     print("Welcome to the initial analyis.")
     global storefigs
     storefigs = input('Would you like to store photos in the project folder?(Y or N)')
+    print('Creating data')
     streets = create_street_data()
     choice = input("Would you like to see a map of all the streets we've identified as Residential Overtime Areas?(Y or N)")
     if choice == 'Y':
@@ -453,24 +558,56 @@ def main():
         done = 'N'
         while count < 0 and done != "Y":
             count = int(input("How many populations would you like?"))
-            split_pop_test(streets, count, False, 'base model')
+            split_pop_test(streets, count, False, False, 'base model')
             done = input('Are you done? (Y or N)')
 
 
     choice = input('Would you like to explore more features?')
     if choice == 'Y':
         print('Beginning feature analysis')
-        feature_analysis(streets)
+        feature_analysis(streets, False)
 
     choice = input('Would you like to log fit the features and try again?')
     if choice == 'Y':
-        log_feature_analysis(streets)
+        log_feature_analysis(streets, False)
+
+
+
+
+    choice = input('Would you like to include parking availability?')
+    streets = create_street_data_parking()
+    if choice == "Y":
+        choice = input('Would you like to see a new scatter plot including parking?')
+
+        if choice == 'Y':
+            show_street_plot_parking(streets)
+
+
+        choice = input('Would you like to see split into population groups, and bootstrap the decision data?')
+        streets.sort_values(by = 'total_ea', inplace = True)
+        if choice == "Y":
+            count = -1
+            done = 'N'
+            while count < 0 and done != "Y":
+                count = int(input("How many populations would you like?"))
+                split_pop_test(streets, count, True, True, 'base model w parking')
+                done = input('Are you done? (Y or N)')
+
+
+        choice = input('Would you like to explore more features?')
+        if choice == 'Y':
+            print('Beginning feature analysis')
+            feature_analysis(streets, True)
+
+        choice = input('Would you like to log fit the features and try again?')
+        if choice == 'Y':
+            log_feature_analysis(streets, True)
 
 
     print('You have completed the intial analysis')
 
 
-
+    return
 
 if __name__== '__main__':
     main()

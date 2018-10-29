@@ -90,8 +90,8 @@ def create_simulated_data():
     #Add initial arrival time
     x = np.random.random(size = 1000)
 
-    def f(x):
-        return -math.log(1.0 - x) / (1/arrival_rate)
+    def f(x, arrival):
+    return -math.log(1.0 - x) / (1/arrival)
 
     firstpass = [f(x) for x in x]
     #firstpass = firstpass.rvs(size = 1000)

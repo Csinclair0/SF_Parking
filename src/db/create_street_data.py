@@ -305,8 +305,8 @@ def main():
     print('Parking Parking')
     pair_parking(streetvolume)
     print('Finished Pairing Parking')
-
-    print('Finished Creating Entire Database and Shapefiles!')
+    conn.close()
+    print('Finished Creating Entire Database and Shapefiles at {}'.format( start.strftime("%H:%M")))
 
 
 if __name__== '__main__':
