@@ -780,6 +780,9 @@ def process_volume():
 
 
     df = streetsweeping.groupby(by = ['cnn', 'blockside', 'weekday'])['week1ofmon', 'week2ofmon', 'week3ofmon', 'week4ofmon', 'week5ofmon', 'totalpermonth'].sum()
+    for i in np.arange(1,6):
+        colname = 'week' + str(i) + 'ofmon'
+        df[colname] = df[colname].apply(lambda x: 1 if x >=1 else 0 )
     streetsweeping.drop_duplicates(subset = ['cnn', 'blockside', 'weekday'])
     streetsweeping.drop(columns = ['totalpermonth', 'week1ofmon', 'week2ofmon', 'week3ofmon', 'week4ofmon', 'week5ofmon'] , inplace = True)
     streetsweeping = streetsweeping.merge(df, left_on = ['cnn', 'blockside', 'weekday'], right_on = ['cnn', 'blockside', 'weekday'])
@@ -943,7 +946,7 @@ def main():
     pair_parking(streetvolume)
     print('Finished Pairing Parking')
     conn.close()
-    print('Finished Creating Entire Database and Shapefiles at {}'.format( start.strftime("%H:%M")))
+    print('Finished Creating Entire Database and Shapefiles at {}'.format( dt.datetime.now().strftime("%H:%M")))
 
 if __name__== '__main__':
     main()

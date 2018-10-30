@@ -513,6 +513,8 @@ def main():
 
     print('You have made it through the Exploratory section!')
 
+    return
+
 
 
 if __name__== '__main__':

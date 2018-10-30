@@ -303,6 +303,7 @@ def main():
     print('Finished Pairing Addresses')
 
     print('Parking Parking')
+
     pair_parking(streetvolume)
     print('Finished Pairing Parking')
     conn.close()

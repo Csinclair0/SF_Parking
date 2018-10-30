@@ -119,16 +119,16 @@ Once we've confirmed our theory that their is a link between street volume and t
 
 But I wanted to see if using this model would actually create some tangible results. So I re-indexed the streets, but using the fitted value to set their rank. We can then re-do our simulated experiment, and see if using this model to make our decisions would actually result in choosing the correct streets. Below is the result, splitting into 10 populations, and re-doing our bootstrapping analysis.
 
-![Initial Distributions](/reports/figures/analysis/initial/.png)
+![Initial Distributions](/reports/figures/analysis/initial/10volumeonlymodel.png)
 
 The results are strong! There is a clear effect that the streets we fit to receive less tickets actually do. By using this model to identify our best streets, we can reduce the average number of tickets by up to 50%!! We also notice there is much less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in identifying. Let's take a deeper dive into the details of the model, with some diagnostic plots.
-![Diagnostics](/reports/figures/analysis/Diagnostics_Original.png)
+![Diagnostics](/reports/figures/analysis/initialmodeldiagnostics.png)
 The Q-Q plot shows the relationship might not be as linear as we expected, so we'll re-run the process but using the logarithmic values of each of our variables.
-![2nd OLS Model](/reports/figures/analysis/OLS_2nd_Fitted.png)
-![Diagnostics](/reports/figures/analysis/Diagnostics_2nd.png)
+![2nd OLS Model](/reports/figures/analysis/initialmodel.png)
+![Diagnostics](/reports/figures/analysis/initialmodeldiagnostics.png)
 The resulting model had a slightly higher r-squared, indicating its a better fit. The diagnostic plots show there is still a a pattern in the residuals, however,  that we haven't completely eliminated. But it seems we have mitigated a few of our outliers. When re-running the experiment, the results seem to be pretty similar to before, with lower means and variability for the populations we look to identify.
 
-![Final OLS chart](/reports/figures/analysis/Final_OLS_WOPark.png)
+![Final OLS chart](/reports/figures/analysis/logmodel.png)
 
 ## Initial Conclusion
 Although there is a significant degree of uncertainty and variability, we can create a model that will estimate the amount of residential overtime tickets per street per year, and those results will be directionally accurate. If we assume that all other factors are equal. We can reduce the amount of tickets by up to 18% by strictly parking at locations that we identify in the top 10% rather than guessing normally, and up to 37% less than if we were to choose one of the worst set of streets. The most contributing factors are freeflow speed, car volume, and bus volume.
@@ -145,11 +145,11 @@ I used a similar pairing process as the street cleaning, using shapely joins and
 
 This time around, we'll use the measure tickets per 100 spots per year. I ran the exact same analysis as before, which came out with a similar conclusion when looking at street volume alone.
 
-![Street Volume](reports/figures/analysis/vol_WPark.png)
+![Street Volume](reports/figures/analysis/volumeonlymodelwparking.png)
 
 When creating a model this time, I could add parking density as a feature, and see if that had an effect. I also added the one way street identifier this time around. I then tested to see if there were any significant interaction effects, and parking density combined with distance was significant, and added accuracy to the model. By re-running our bootstrapping analysis, we can see this increased our population difference from 18% up to 40% when using this new model. This model seems to be much more accurate. If we look at at a numerical description between our worst and best fitted populations, we can confirm what the model was looking for.
 
-![Final Model](reports/figures/analysis/OLS_final_fitted.png)
+![Final Model](reports/figures/analysislogmodelparking.png)
 
 The worst fitted population had smaller distances, lower parking supply, lower speeds, and lower volume. One Way streets had a significant difference, increasing the average number of tickets. Higher parking density was also a huge difference for the best streets compared to the worst. Maybe this could be because it requires them to look much harder for the residential permit, located on the bumper, for types of streets that are bumper to bumper and have higher volume. These streets tend to be on less 'residential' blocks, where no driveways exist, and would also most likely have...higher volume. So, by including parking supply I may have confirmed my initial findings, but expanded upon a deeper meaning in it.
 
