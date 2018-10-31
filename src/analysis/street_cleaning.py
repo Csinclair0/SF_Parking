@@ -81,6 +81,7 @@ def main():
     tick_per_month(ticks)
     sweep_per_month(ticks)
     sweep_by_hour(ticks)
+    by_day_of_week(ticks)
 
 
 

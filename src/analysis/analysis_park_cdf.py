@@ -33,6 +33,16 @@ def delta_minutes(x,y):
 
 
 def load_data():
+    """Function is made to pull all data sources needed fot the entire analysis. It will merge these data sources into usable form, and also return just the street data.
+
+    Returns
+    -------
+    df - dataframe
+        dataframe with information on each ticket, the address, and the street link
+    streetdata - DataFrame
+        dataframe with street data only
+
+    """
     streetdata = pd.read_sql_query('Select lineid, distance, park_supply, speed_ea from street_volume_data', conn)
 
     ticket_data = pd.read_sql_query("Select * from ticket_data where ViolationDesc = 'RES/OT' ", conn)
@@ -44,6 +54,26 @@ def load_data():
     return df, streetdata
 
 def create_initial_arrival_prob(df, streetdata):
+    """This will be the funciton to generate the initial arrival distribution. It will rely on a few inputs from the user, but the process is as follows.
+        -generate percent of time spend on residential streets vs non-residential street_sweeping
+        -find the average number of residential overtime tickets given by officer per days
+        -find average number of officers patrolling per days
+        -estimate how many spots per day a given officer will inspect
+        -compare that with the total amount of spors available, and generate an arrival time.
+
+    Parameters
+    ----------
+    df : dataframe
+        ticket data merged with street info
+    streetdata : dataframe
+        street data only
+
+    Returns
+    -------
+    float
+        estimated time in minutes for each arrival on an average street
+
+    """
     c.execute("Select Count(distinct lineid) from ticket_data t1 join address_data t2 on t1.address = t2.address")
     totalticks = c.fetchone()[0]
     c.execute("Select Count(distinct lineid) from ticket_data t1 join address_data t2 on t1.address = t2.address where violationdesc = 'RES/OT'")
@@ -89,6 +119,19 @@ def create_initial_arrival_prob(df, streetdata):
 
 
 def create_return_distribution(df):
+    """generate distribution of what time they will return, after marking your car initially. Will search for times when an officer gave out two tickets on the same street id between 2 and 3 hours and use that as our probability.
+
+    Parameters
+    ----------
+    df : dataframe
+        ticket data merged with street data
+
+    Returns
+    -------
+    distribution
+        cumulative distribution function of return time.
+
+    """
     df['TickDate'] = df['TickIssueDate'].apply(lambda x:  dt.datetime.strftime(pd.to_datetime(x),'%Y-%m-%d'))
 
     df = df[['TickBadgeIssued', 'TickIssueDate', 'TicketNumber', 'TickIssueTime', 'lineid', 'TickDate']]
@@ -125,11 +168,42 @@ def create_return_distribution(df):
     return custom
 
 def f(x, arrival):
+    """generates an esitmated arrivaltime based off an average arrival rate.
+
+    Parameters
+    ----------
+    x : float
+        random number between 0 and 1
+    arrival : float
+        mean arrival rate
+
+    Returns
+    -------
+    float
+        simluated arrival rate for one instance
+
+    """
     return -math.log(1.0 - x) / (1/arrival)
 
 
 
 def create_simulated_data(arrival, custom):
+    """
+    This function will take an arrival rate, pass it through the arrival function with 1000 samples, and pait them with 1000 return time samples. This will create a simulated dataset of how long it would take to get a residential overtime ticket.
+
+    Parameters
+    ----------
+    arrival : float
+        average arrival time, in minutes
+    custom : type
+        distribution of return rate
+
+    Returns
+    -------
+    array
+        array of return times to be combined with other arrivals
+
+    """
     #Add initial arrival time
     x = np.random.random(size = 1000)
     firstpass = [f(x, arrival) for x in x]
@@ -148,6 +222,25 @@ def create_simulated_data(arrival, custom):
 
 
 def plot_mean(mean, secondpass, title, color):
+    """This function will plot a cumulative distribution of how long it will take to receive a ticket. It will combine the given arrival rate, the second pass returns, and plot them on the axis given a specific color.
+
+    Parameters
+    ----------
+    mean : float
+        arrival rate passed
+    secondpass : array
+        sample of 1000 return rates
+    title : string
+        title of line to be plotted
+    color : string(color)
+        color of line to be plotted
+
+    Returns
+    -------
+    plot
+        added plot of line
+
+    """
     x = np.random.random(size = 1000)
     firstpass_mean = [f(x, mean) for x in x]
     totalprob_mean =  firstpass_mean + secondpass
@@ -159,6 +252,23 @@ def plot_mean(mean, secondpass, title, color):
 
 
 def split_by_pop(arrival_rate, secondpass, means):
+    """This function will take the average arrival rate, as well as all population means from the model creation stage. It will combine these to generate new arrival rates each population, and plot them all on the same axis.
+
+    Parameters
+    ----------
+    arrival_rate : float
+        average time for arrival
+    secondpass : array
+        array of return times
+    means : dictionary
+        dictionary of all population means from model phase.
+
+    Returns
+    -------
+    none
+        prints a plot
+
+    """
     for i in range(1,11):
         mean= arrival_rate * means['base'] / means[i]
         title = 'pop' + str(i)
@@ -174,6 +284,29 @@ def split_by_pop(arrival_rate, secondpass, means):
     return
 
 def plot_mean_ci(mean, lci, uci, secondpass,  title, color):
+    """This function will be used to create condifence intervals on the ticket probability distribution. It will take the lower and upper confidence intervals to create new distributions, and will fill the area between them.
+
+    Parameters
+    ----------
+    mean : float
+        average arrival rate
+    lci : float
+        lower confidence interval of arrival
+    uci : float
+        upper confidence interval of arrival
+    secondpass : array
+        array of return distributions
+    title : string
+        title of populations
+    color : stirng(color)
+        color to plot
+
+    Returns
+    -------
+    none
+        plots new lines
+
+    """
     plt.figure(figsize = (10,6))
     x = np.random.random(size = 1000)
     firstpass_lci = [f(x, lci) for x in x]
@@ -194,18 +327,34 @@ def plot_mean_ci(mean, lci, uci, secondpass,  title, color):
     counts_high, bin_edges_high = np.histogram(totalprob_uci, bins = 30, density = True)
     cdf_high = np.cumsum(counts_high)
 
-
-
     x_ = bin_edges_mean[1:]
     plt.plot(bin_edges_mean[1:], cdf_mean/cdf_mean[-1], color = color, label = title)
     plt.fill_between( x_,cdf_low/cdf_low[-1], cdf_high/cdf_high[-1], color = color, alpha = .25)
-
 
     return
 
 
 
 def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
+    """Function to generate total plot that includes confidence intervals. will generate upper and lower arrival rates, and pass through plotting function.
+
+    Parameters
+    ----------
+    arrival_rate : float
+        average arrival rate
+    secondpass : array
+        return distribution
+    means : dictionary
+        all population means from model phase
+    stds : dictionary
+        all standard deviations from model phase
+
+    Returns
+    -------
+    none
+        plots mean and conficence intervals
+
+    """
     plt.figure(figsize = (10,6))
     arrival_lci = arrival_rate *   means['base'] / (means['base'] + 1.64*stds['base'])
     arrival_uci = arrival_rate *  means['base'] / (means['base'] - 1.64*stds['base'])
@@ -230,9 +379,23 @@ def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
     plt.set_xlim(120,480)
     plt.xticks(np.arange(120,480,30))
     plt.show()
+    return
 
 
 def main():
+    """Function to run through entire script if ran.
+    -load dataset
+    -create arrival rates
+    -create return rates
+    -split by populations
+    -add confidence intervals
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
 
     with open(proc_loc + 'means.pickle', 'rb') as handle:
         means = pickle.load(handle)

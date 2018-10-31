@@ -99,6 +99,19 @@ def create_street_data_parking():
 
 
 def show_street_map(streets):
+    """Function to plot all streets identified as residential overtime candidates, for verification purposes.
+
+    Parameters
+    ----------
+    streets : GeoDataFrame
+        geodataframe of all streets identified
+
+    Returns
+    -------
+    none
+        shows plot
+
+    """
     streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
     streetvolume = streetvolume.to_crs(epsg = 4326)
     times = ['am', 'pm', 'ev', 'ea']
@@ -109,9 +122,6 @@ def show_street_map(streets):
 
     df.plot(figsize = (20,20), color = 'Red')
     plt.title('Streets identified as Residential Overtime Areas')
-    title = 'ResOTStreets.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
     return
 
@@ -119,7 +129,7 @@ def show_street_map(streets):
 
 
 def show_street_plots(streets):
-    """Short summary.
+    """function to show histogram data and scatter plot of street data.
 
     Parameters
     ----------
@@ -160,9 +170,6 @@ def show_street_plots(streets):
         axplots[1].set_xlabel('Total Tickets(log)')
         axplots[1].plot(ticks, tick_normals.pdf(ticks))
         fig.suptitle('Feature Normality Plots')
-        title = 'FeatureNormality.png'
-        if storefigs == 'Y':
-            fig.savefig(image_loc + title)
         fig.show()
 
 
@@ -179,9 +186,6 @@ def show_street_plots(streets):
         ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
         ax.set_axisbelow(True)
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
-        title = 'VolvsTix.png'
-        if storefigs == 'Y':
-            fig.savefig(image_loc + title)
         fig.show()
 
 
@@ -198,15 +202,13 @@ def show_street_plots(streets):
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
         title = 'VolvsTixMile.png'
         fig.show()
-        if storefigs == 'Y':
-            fig.savefig(image_loc + title)
 
 
     return
 
 
 def show_street_plots_parking(streets):
-    """Short summary.
+    """Will create street plots, while including parking availability as well.
 
     Parameters
     ----------
@@ -216,9 +218,9 @@ def show_street_plots_parking(streets):
     Returns
     -------
     none
+        plots volume
 
     """
-
     fig = plt.figure(figsize = (15, 15))
     ax = fig.add_subplot(1,1,1)
     ax.scatter(x = np.log(streets['total_ea']), y = streets['tickperspot'])
@@ -226,16 +228,10 @@ def show_street_plots_parking(streets):
     ax.set_axisbelow(True)
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     title = 'VolvsTix.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     ax.set_title('Scatter Plot of Total Street Volume vs. Total Tickets per 100 spots per Year')
     ax.set_ylabel('Tickets per 100 spots per year')
     ax.set_xlabel('Total Street Volume')
-    if storefigs == 'Y':
-        fig.savefig(image_loc + 'volvstickperspot.png')
     fig.show()
-
-
     return
 
 
@@ -256,7 +252,6 @@ def two_pop_test(streets):
     """
     df_lowvol = streets[streets.total_ea <=  np.percentile(streets['total_ea'], 50)]
     df_highvol = streets[streets.total_ea > np.percentile(streets['total_ea'], 50)]
-
     plt.figure(figsize = (8,8))
     tickets = [np.log(df_lowvol['tickpermile']),  np.log(df_highvol['tickpermile'])]
     plt.boxplot(tickets)
@@ -264,14 +259,9 @@ def two_pop_test(streets):
     plt.xticks(np.arange(1,3), labels = ('Lower Volume', 'Higher Volume'))
     plt.ylabel('Tickets per Mile (log)')
     plt.show()
-    if storefigs == 'Y':
-        plt.savefig(image_loc + 'boxplot.png')
-
     res = stats.ttest_ind(df_lowvol['tickpermile'], df_highvol['tickpermile'], equal_var = False)
-
     print('Comparing Means')
     print(res)
-
     return
 
 
@@ -352,10 +342,6 @@ def split_pop_test(streets, pops, fitted, parking, modelname, baseline = False):
         plt.title('Frequency curves of sampled street populations sorted by OLS fitted values,  ' + modelname)
     else:
         plt.title('Frequency curves of sampled street populations sorted by total volume ')
-    title =  str(pops) + modelname + '.png'
-    title = re.sub(" ", "", title)
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
     return means, stds
@@ -363,7 +349,7 @@ def split_pop_test(streets, pops, fitted, parking, modelname, baseline = False):
 
 
 
-def diagnostic_plots(model_fit, streets, model_name, modelsave):
+def diagnostic_plots(model_fit, streets, model_name):
     model_fitted_y = model_fit.fittedvalues
 
     # residuals
@@ -426,9 +412,6 @@ def diagnostic_plots(model_fit, streets, model_name, modelsave):
 
     fig.suptitle('Diagnostic plots for ' + model_name)
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-    title = modelsave
-    if storefigs == 'Y':
-        fig.savefig(image_loc + title)
     fig.show()
     return
 
@@ -460,12 +443,6 @@ def feature_analysis(streets, parking):
     plt.text(0.01, 0.05, str(res.summary()), {'fontsize': 10}, fontproperties = 'monospace')
     plt.axis('off')
     plt.tight_layout()
-    if parking == True:
-        imagetitle = 'initialmodelparking.png'
-    else:
-        imagetitle = 'intialmodel.png'
-    if storefigs == True:
-        plt.save(image_loc + imagetitle)
     plt.show()
 
 
@@ -492,7 +469,7 @@ def feature_analysis(streets, parking):
         else:
             title = 'initial model'
             imagetitle = 'intialmodeldiagnostics.png'
-        diagnostic_plots(res, streets, title, imagetitle)
+        diagnostic_plots(res, streets, title)
 
     return
 
@@ -514,12 +491,6 @@ def log_feature_analysis(streets, parking):
     plt.text(0.01, 0.05, str(res.summary()), {'fontsize': 10}, fontproperties = 'monospace')
     plt.axis('off')
     plt.tight_layout()
-    if parking == True:
-        imagetitle = 'logmodelparking.png'
-    else:
-        imagetitle = 'logmodel.png'
-    if storefigs == True:
-        plt.save(image_loc + imagetitle)
     plt.show()
 
 
@@ -543,12 +514,10 @@ def log_feature_analysis(streets, parking):
     if choice == 'Y':
         if parking == True:
             title = 'log model with parking included'
-            imagetitle = 'logmodelparkingdiagnostics.png'
         else:
             title = 'log model'
-            imagetitle = 'logmodeldiagnostics.png'
             streets.drop(columns = 'fitted', inplace = True)
-        diagnostic_plots(res, streets, title, imagetitle)
+        diagnostic_plots(res, streets, title)
     return streets
 
 
@@ -570,8 +539,6 @@ def interaction_model(streets):
         plt.text(0.01, 0.05, str(res.summary()), {'fontsize': 10}, fontproperties = 'monospace')
         plt.axis('off')
         plt.tight_layout()
-        if storefigs == 'Y':
-            plt.savefig(image_loc + 'interactionmodel.png')
         plt.show()
 
 
@@ -587,8 +554,6 @@ def final_model(streets):
     plt.text(0.01, 0.05, str(res.summary()), {'fontsize': 10}, fontproperties = 'monospace')
     plt.axis('off')
     plt.tight_layout()
-    if storefigs == 'Y':
-        plt.savefig(image_loc + 'finalmodel.png')
     plt.show()
 
     choice = input('Would you like to bootstrap some population means based off fitted values?')
@@ -609,17 +574,8 @@ def final_model(streets):
 
 
 
-
-
-
-
-
-
-
 def main():
     print("Welcome to the initial analyis.")
-    global storefigs
-    storefigs = input('Would you like to store photos in the project folder?(Y or N)')
     print('Loading Data into usable form')
     streets = create_street_data()
     choice = input("Would you like to see a map of all the streets we've identified as Residential Overtime Areas?(Y or N)")
@@ -705,6 +661,8 @@ def main():
         choice = input('Would you like to save the model?(Y or N)')
         if choice == 'Y':
             streets.to_pickle(proc_loc + 'FinalModel.pkl')
+
+
 
 
     print('You have completed the initial analysis')

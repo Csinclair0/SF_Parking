@@ -5,6 +5,7 @@ import pandas as pd
 import datetime as dt
 import glob
 import time
+import pickle
 import re
 from geopy.geocoders import Nominatim
 from tqdm import tqdm
@@ -48,7 +49,7 @@ def create_raw_data():
 
 
     """
-    for csv_file in glob.glob(raw_loc + '/ticket_data/PRR_*'):
+    for csv_file in glob.glob(raw_loc + 'ticket_data/PRR_*'):
         filestring =os.path.basename(csv_file)
         index_start = 1
         j = 0
@@ -239,7 +240,7 @@ def return_intersections(streetname):
 
 
 def check_location(location):
-    """Checks if location coordinates are withi San francisco, this is to validate any addresses that we look up on openstreetmap.
+    """Checks if location coordinates are within San francisco, this is to validate any addresses that we look up on openstreetmap.
 
     Parameters
     ----------
@@ -374,7 +375,7 @@ def create_address_data():
 
 
     print("Finding similar addresses")
-    df = pd.read_sql('Select distinct tickstreetno , tickstreetname , count(*) total_tickets from raw_ticket_data t1'
+    df = pd.read_sql_query('Select distinct tickstreetno , tickstreetname , count(*) total_tickets from raw_ticket_data t1'
                       ' left join raw_address_data t2 on t1.TickStreetNo = t2.number and t1.TickStreetName = t2.streetname '
                       " where t2.address is null group by tickstreetno, tickstreetname ", conn)
 
@@ -396,17 +397,18 @@ def create_address_data():
     newdf['delta'] = np.abs(newdf['number'] - newdf['TickStreetNo'])
     newdf.sort_values(by = 'delta', inplace = True)
     newdf.drop_duplicates(subset = ['TickStreetName', 'TickStreetNo'], keep = 'first', inplace = True)
+
     newdf = newdf[[ 'lon', 'lat', 'TickStreetNo', 'street', 'address','streetname' ]]
     newdf.columns = ['lon', 'lat', 'number', 'street', 'address','streetname' ]
     newdf['address'] = newdf['number'].map(str) + ' ' + newdf['street']
     newdf.drop_duplicates(inplace = True)
     newdf['type'] = 'similar'
     newdf.to_sql('raw_address_data', conn, if_exists = 'append')
-
+    unfound = unfound[unfound.TickStreetNo < 10000]
 
 
     print("Searching for Intersection Addresses")
-    unfound = unfound[(unfound.TickStreetNo < 10000) & (unfound.TickStreetNo > 0)]
+    #unfound = unfound[(unfound.TickStreetNo < 10000) & (unfound.TickStreetNo > 0)]
     isection = unfound[['TickStreetNo','TickStreetName', 'total_tickets']]
     isection['address'] = isection['TickStreetName'].apply(return_intersections)
     unfound = isection[pd.isnull(isection.address) == True]
@@ -414,6 +416,7 @@ def create_address_data():
     isection = isection.merge(addresses, left_on = 'address', right_on = 'address')
     isection = isection[['number', 'streetname', 'street', 'address', 'lat', 'lon']]
     isection.to_sql('raw_address_data', if_exists = 'append', con = conn)
+
 
 
     print("Searching for Unknown Addresses")
@@ -435,7 +438,7 @@ def create_address_data():
 
 
     print("associating neighborhoods")
-    addresses = pd.read_sql('Select * from raw_address_data', conn)
+    addresses = pd.read_sql_query('Select * from raw_address_data', conn)
     addresses['geometry'] = addresses.apply(lambda x: Point(x['lon'], x['lat']), axis = 1)
     point = gpd.GeoDataFrame(addresses['geometry'])
     point.crs = {'init': 'epsg:4326'}
@@ -447,11 +450,13 @@ def create_address_data():
     addresses.drop(columns = ['geometry', 'index', 'index_right'], inplace = True)
     addresses.drop_duplicates(subset = 'address', inplace = True)
     addresses['number'] = addresses['number'].astype(int)
+    addresses.to_sql('address_data', conn, if_exists = 'replace')
+
+
     unfound.rename(columns = {'TickStreetNo':'number', 'TickStreetName': 'streetname'}, inplace = True)
     unfound.drop(columns = 'total_tickets', inplace = True)
     unfound['number'] = unfound['number'].astype(int)
-    addresses = addresses.append(unfound)
-    addresses.to_sql('address_data', conn, if_exists = 'replace')
+    unfound.to_sql('address_data', if_exists = 'append', con = conn)
 
 
 
@@ -463,7 +468,6 @@ def create_address_data():
     single_address = single_address.merge(addresses, left_on = ['number', 'streetname'], right_on = ['number', 'streetname'])
     double_address = addresses[addresses.address.isin(single_address['address']) == False]
     single_address.to_sql('single_address', conn, if_exists = 'replace')
-
 
     return single_address, double_address, addresses
 
@@ -622,7 +626,7 @@ def process_ticket_data():
     totalleft = c.fetchone()[0]
     print('{} total rows required'.format(totalleft))
     np.random.seed(1)
-    df_total = pd.read_sql('Select Ticketnumber, TickIssueDate, TickIssueTime, ViolationDesc, '
+    df_total = pd.read_sql_query('Select Ticketnumber, TickIssueDate, TickIssueTime, ViolationDesc, '
                   ' VehMake, TickRPPlate, TickStreetNo, TickMeter, Agency, TickBadgeIssued, '
                    'TickStreetName , TotalPaid, TotalAmtDue from raw_ticket_data ', conn)
     columnlist = df_total.columns.tolist()
@@ -764,7 +768,7 @@ def process_volume():
     streetvolume = streetvolume[columnlist]
     streetvolume.reset_index(inplace = True)
     streetvolume.rename(columns = {'index' : 'lineid'}, inplace = True)
-    streetvolume.to_file(proc_loc + '/final_streets/SF_Street_Data.shp')
+    streetvolume.to_file(proc_loc + 'final_streets/SF_Street_Data.shp')
 
 
     print('joining street sweeping file')
@@ -814,10 +818,9 @@ def process_volume():
 
     print("Storing Data to SQL")
     streetsweeping = streetsweeping.append(df)
-    streetsweeping.to_file(proc_loc + '/final_sweeping/final_sweeping.shp')
+    streetsweeping.to_file(proc_loc + 'final_sweeping/final_sweeping.shp')
     sqldf_sweep = streetsweeping.drop(columns = ['geometry', 'geometry'])
     sqldf_sweep.to_sql('street_sweep_data', con = conn, if_exists = 'replace')
-
     return streetsweeping, streetvolume
 
 
@@ -882,7 +885,7 @@ def pair_parking(streetvolume):
     spaces.rename(columns = {'PRKNG_SPLY':'park_supply'}, inplace = True)
     total_join = gpd.tools.sjoin(streetvolume, spaces, how= 'left')
     total_join ['park_supply']= total_join.apply(lambda x: 0 if x['streetname'] != x['ST_NAME'] else x['park_supply'], axis = 1)
-    total_join.sort_values(by = 'park_supply', inplace = True)
+    total_join.sort_values(by = 'park_supply', ascending = False, inplace = True)
     total_join.drop_duplicates(subset = ['lineid'], inplace = True)
     total_join.to_file(proc_loc+ '/final_streets/SF_Street_Data.shp')
     total_join.drop(columns = ['index_right', 'geometry'], inplace = True)
@@ -927,8 +930,8 @@ def main():
     print("Finished Creating addresses")
 
     global nhoodtype
-    nhoodtype = pd.read_sql('Select nhood, violationdesc, count(*) tickets from raw_ticket_data t1 join single_address t2 '
-                             ' on t1.TickStreetNo = t2.number and t1.TickStreetName = t2.streetname group by nhood, violationdesc', conn)
+    nhoodtype = pd.read_sql_query('Select nhood, violationdesc, count(*) tickets from raw_ticket_data t1 join single_address t2 '
+                            ' on t1.TickStreetNo = t2.number and t1.TickStreetName = t2.streetname group by nhood, violationdesc', conn)
 
     print("Processing Ticket Data")
     process_ticket_data()
@@ -941,12 +944,13 @@ def main():
     pair_address(streetsweeping, streetvolume)
     print('Finished Pairing Addresses')
 
-    print('Parking Parking')
-
+    print('Pairing Parking')
     pair_parking(streetvolume)
     print('Finished Pairing Parking')
+
     conn.close()
-    print('Finished Creating Entire Database and Shapefiles at {}'.format( dt.datetime.now().strftime("%H:%M")))
+
+    print('Finished Creating Entire Database and updated Shapefiles at {}'.format( dt.datetime.now().strftime("%H:%M")))
 
 if __name__== '__main__':
     main()

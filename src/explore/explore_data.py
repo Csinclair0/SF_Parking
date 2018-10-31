@@ -29,12 +29,12 @@ mpl.rc('xtick', labelsize = 8 )
 
 
 global conn
-conn = sqlite3.connect(raw_loc + 'SF_Parking.db')
+conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
 
 
 
 
-def data_by_meter(address_data, storefigs):
+def data_by_meter(address_data):
     """Function to plot out average tickets per meter for each neighborhood
 
     Returns
@@ -56,9 +56,7 @@ def data_by_meter(address_data, storefigs):
     ax1.xaxis.set_label_text('foo')
     ax1.xaxis.label.set_visible(False)
     plt.show()
-    title = 'MetbyNhood.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
+
 
     return
 
@@ -69,8 +67,11 @@ def load_data():
 
     Returns
     -------
-    type
-        Description of returned object.
+    ticket data
+        dataframe of ticket dataset
+    address data
+        dataframe of address data
+
 
     """
     ticket_data = pd.read_sql_query("Select  * from ticket_data " ,con = conn, parse_dates = ['TickIssueDate'])
@@ -79,7 +80,7 @@ def load_data():
     return ticket_data, address_data
 
 
-def generate_plots(ticket_data, storefigs):
+def generate_plots(ticket_data):
     """function to go through and create exploratory plots.
 
     Parameters
@@ -118,9 +119,7 @@ def generate_plots(ticket_data, storefigs):
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     ax.set_title('Total Tickets by Violation Type')
     plt.show()
-    title = 'TickByViolation.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
+
 
 
     #Most common vehicle types
@@ -134,9 +133,6 @@ def generate_plots(ticket_data, storefigs):
     ax.set_axisbelow(True)
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     plt.xticks(rotation = 45)
-    title = 'TickByVehMake.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
 
@@ -152,9 +148,6 @@ def generate_plots(ticket_data, storefigs):
     ax.set_axisbelow(True)
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     plt.xticks(rotation = 45)
-    title = 'TickByNHood.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
 
@@ -172,9 +165,6 @@ def generate_plots(ticket_data, storefigs):
     ax.set_axisbelow(True)
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     plt.xticks(rotation = 45)
-    title = 'TickByHour.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
 
@@ -190,9 +180,6 @@ def generate_plots(ticket_data, storefigs):
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     plt.xticks(rotation = 0)
     ax.legend_.remove()
-    title = 'StreetCleanByHour.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
 
@@ -213,9 +200,6 @@ def generate_plots(ticket_data, storefigs):
     ax.set_axisbelow(True)
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     plt.xticks(rotation = 45)
-    title = 'ByHourByHood.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
 
@@ -236,9 +220,6 @@ def generate_plots(ticket_data, storefigs):
     ax.set_axisbelow(True)
     ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
     plt.xticks(rotation = 45)
-    title = 'ByDayByType.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
 
@@ -261,9 +242,6 @@ def generate_plots(ticket_data, storefigs):
     nhood_pct.plot(kind = 'bar', stacked = True, figsize = (15, 10))
     plt.legend(bbox_to_anchor = (0, 1))
     plt.title('Percent Share of Ticket Type by Neighborhood')
-    title = 'ShareByHood.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
 
@@ -284,15 +262,12 @@ def generate_plots(ticket_data, storefigs):
     by_car_pct.plot(kind = 'bar', stacked = True, figsize = (15, 10))
     plt.legend(bbox_to_anchor = (0, 1))
     plt.title('Percent Share of Tickets by Vehicle Make, by Neighborhood')
-    title = 'VehByNhood.png'
-    if storefigs == 'Y':
-        plt.savefig(image_loc + title)
     plt.show()
 
 
     choice = input('Would you like to generate a chart by neighborhood, plotting meter success?(Y or N)')
     if choice == 'Y':
-        data_by_meter( address_data, storefigs)
+        data_by_meter( address_data)
 
 
 
@@ -477,12 +452,25 @@ def colored_ticket_map(ticket_data, address_data):
 
 
 def main():
+    """Function if called module directly. Will
+
+    -generate Plots
+    -create ticket maps
+    -create heatmaps
+    -create volume maps
+    -create colored ticket maps 
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
     print('Loading Data in usable form for analysis')
     ticket_data, address_data = load_data()
-    storefigs = input('Would you like to save the figures in the project folder?(Y or N)')
     choice = input('Welcome to the Exploratory Section. You wanna See some charts? We got plenty.(Y or N)')
     if choice == 'Y':
-        generate_plots(ticket_data, storefigs)
+        generate_plots(ticket_data)
 
 
     choice = input('Would you like to look up some license plates? (Y or N)')

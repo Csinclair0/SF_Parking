@@ -13,13 +13,14 @@ from shapely.geometry import Point
 from geopandas import GeoSeries, GeoDataFrame
 import mplleaflet
 from IPython.display import HTML
+from explore.explore_data import project_to_line
 from matplotlib.animation import FuncAnimation
 
 global conn
 
 raw_loc= '/home/colin/Desktop/SF_Parking/data/raw/'
 proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
-
+map_loc = '/home/colin/Desktop/SF_Parking/reports/maps/'
 conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
 
 
@@ -282,6 +283,53 @@ def map_the_route(weekday, by_route, streetvolume):
     df.plot(cmap = 'RdYlGn', column = 'mins', figsize = (20,20))
 
 
+def plot_model(numticks):
+    """Function to plot a map, coloring the street based on the model fitted value.
+
+    Parameters
+    ----------
+    numticks : int
+        number of tickets to plot on the map
+        
+    Returns
+    -------
+    html map
+
+    """
+    print('Loading Data')
+    df = pd.read_sql_query("Select address, lat, lon from ticket_data t1 join address_data t2 on "
+            " t1.address =- t2.address where ViolationDESC = 'RES/OT' Limit + " + str(numticks), conn)
+
+
+    print('Loading model')
+    with open(proc_loc + 'Finalmodel.pkl', 'rb') as handle:
+        model = pickle.load(handle)
+    streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
+    model = model[['lineid', 'fitted']]
+    streetvolume = streeetvolume.merge(model, left_on = 'lineid', right_on = 'lineid')
+    streetvolume['fitted'] = 1 / streetvolume['fitted']
+    print('Creating Map of model')
+    choice2 = input('Would you like to project the address data onto the street?(Y or N)')
+    streetvolume = streetvolume.to_crs(epsg = 4326)
+    ax = streetvolume.plot(column = 'fitted', cmap = 'RdYlGn', alpha = 1)
+    geometry = [Point(xy) for xy in zip(df.lon, df.lat)]
+    df = df.drop(['lon', 'lat'], axis=1)
+    crs = {'init': 'epsg:4326'}
+    gdf = gpd.GeoDataFrame(df, crs=crs, geometry=geometry)
+    if choice2 == 'Y':
+        print('Projecting Addresses to Street')
+        gdf['geometry'] = gdf.progress_apply(lambda x: project_to_line(x['lineid'], streetvolume, x['geometry']), axis = 1)
+    gdf.plot(ax = ax, marker = "*", color='black', markersize=3);
+    filename = (map_loc + 'ModelMap.html')
+    try:
+        os.remove(filename)
+    except:
+        pass
+    mplleaflet.show(fig=ax.figure, crs=streetvolume.crs, tiles='cartodb_positron', path = filename)
+    return
+
+
+
 
 def main():
     """Main function to choose which extra you would like to do.
@@ -300,7 +348,7 @@ def main():
 
     runagain = 'Y'
     while runagan == 'Y'
-        choice = input('Which extra would you like to do? 1.Day animation 2.Recent Street Cleaning 3.Estimated Sweeping Time 4. Map the Route ')
+        choice = input('Which extra would you like to do? 1.Day animation 2.Recent Street Cleaning 3.Estimated Sweeping Time 4. Map the Route 5. Plot the generated model')
 
         switch(choice) {
         case 1: datestring = input('Which date would you like to make?(format %d-%m-%Y)')
@@ -324,6 +372,10 @@ def main():
         case 4: weekday = input('What day of week would you like to look at?(Mon,Tues, Wed, Thurs, Fri, Sat, Sun)'))
         weekday = weekdaydict(weekday)
         map_the_route(weekday, by_route, streetvolume):
+
+
+        case 5: numticks = int(input('How many tickets would you like to plot?'))
+        plot_model(numticks)
 
         default runagain = input('Your entry was invalid, would you like to try again ?(Y or N)')
         }
