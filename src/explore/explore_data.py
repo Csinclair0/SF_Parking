@@ -33,7 +33,6 @@ conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
 
 
 
-
 def data_by_meter(address_data):
     """Function to plot out average tickets per meter for each neighborhood
 
@@ -80,7 +79,7 @@ def load_data():
     return ticket_data, address_data
 
 
-def generate_plots(ticket_data):
+def generate_plots(ticket_data, address_data):
     """function to go through and create exploratory plots.
 
     Parameters
@@ -242,6 +241,7 @@ def generate_plots(ticket_data):
     nhood_pct.plot(kind = 'bar', stacked = True, figsize = (15, 10))
     plt.legend(bbox_to_anchor = (0, 1))
     plt.title('Percent Share of Ticket Type by Neighborhood')
+    plt.xlabel('Neighborhood')
     plt.show()
 
 
@@ -458,7 +458,7 @@ def main():
     -create ticket maps
     -create heatmaps
     -create volume maps
-    -create colored ticket maps 
+    -create colored ticket maps
 
     Returns
     -------
@@ -470,7 +470,7 @@ def main():
     ticket_data, address_data = load_data()
     choice = input('Welcome to the Exploratory Section. You wanna See some charts? We got plenty.(Y or N)')
     if choice == 'Y':
-        generate_plots(ticket_data)
+        generate_plots(ticket_data, address_data)
 
 
     choice = input('Would you like to look up some license plates? (Y or N)')

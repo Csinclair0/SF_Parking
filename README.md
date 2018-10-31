@@ -58,6 +58,8 @@ While I was at it, I found the street cleaning routes from openDataSF.com, also 
 Because of the large nature of the database, it was stored in SQLite. The finished Schema is shown below.
 ![Sql Schema](reports/figures/sqldb.png)
 
+The whole cleaning process can take up to about 3 hours. I have made both raw and processed data available here for download.
+
 
 In order to get a relational database that could pair a ticket with a street id, the first task was to associate an address with every ticket. The ticket data does not include the street suffix, which will cause more issues later on, but for now that means we would like to strip out just the street name from the address data so we have something to join on. Then we can use this table to query against what doesn't match. We'll then find what doesn't match, and we'll look for "similar" addresses. These will be addresses that share a street name, are on the same block(address rounded to 100 ), and block side (Odd or even).
 
