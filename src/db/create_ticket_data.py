@@ -689,13 +689,7 @@ def find_closest_segment(LineString, street, streetvolume):
     cnn is effectively the street link if for street cleaning, so we only need to look up that and then join it with all others.
 
     Parameters
-    ----------def find_closest_segment(LineString, street):
-    streetdf = streetvolume[streetvolume['streetname'] == street]
-    if streetdf.shape[0] == 0:
-        streetdf = streetvolume
-    streetdf['distance'] = streetdf['geometry'].apply(lambda x: LineString.distance(x))
-    streetdf.sort_values(by = 'distance', ascending = True, inplace = True)
-    return streetdf['lineid'].iloc[0]
+    ----------
     LineString : Shapely LineString
         Street Sweeping line segment
     street : string
@@ -712,8 +706,8 @@ def find_closest_segment(LineString, street, streetvolume):
     streetdf = streetvolume[streetvolume['streetname'] == street]
     if streetdf.shape[0] == 0:
         streetdf = streetvolume
-    streetdf['distance'] = streetdf['geometry'].apply(lambda x: LineString.distance(x))
-    streetdf.sort_values(by = 'distance', ascending = True, inplace = True)
+    streetdf['distanceTo'] = streetdf['geometry'].apply(lambda x: LineString.distance(x))
+    streetdf.sort_values(by = 'distanceTo', ascending = True, inplace = True)
     return streetdf['lineid'].iloc[0]
 
 
@@ -787,7 +781,7 @@ def process_volume():
     for i in np.arange(1,6):
         colname = 'week' + str(i) + 'ofmon'
         df[colname] = df[colname].apply(lambda x: 1 if x >=1 else 0 )
-    streetsweeping.drop_duplicates(subset = ['cnn', 'blockside', 'weekday'])
+    streetsweeping.drop_duplicates(subset = ['cnn', 'blockside', 'weekday'], inplace = True)
     streetsweeping.drop(columns = ['totalpermonth', 'week1ofmon', 'week2ofmon', 'week3ofmon', 'week4ofmon', 'week5ofmon'] , inplace = True)
     streetsweeping = streetsweeping.merge(df, left_on = ['cnn', 'blockside', 'weekday'], right_on = ['cnn', 'blockside', 'weekday'])
     streetvolume_j = streetvolume[['lineid', 'geometry', 'streetname', 'total_ea']]
@@ -812,7 +806,8 @@ def process_volume():
     tqdm.pandas()
     unfound.drop(columns = 'lineid', inplace = True)
 
-    unfound_cnn['lineid'] = unfound_cnn.progress_apply(lambda x: find_closest_segment(x['geometry'], x['streetname'], streetvolume), axis = 1)
+    dfstreets = streetvolume.copy()
+    unfound_cnn['lineid'] = unfound_cnn.progress_apply(lambda x: find_closest_segment(x['geometry'], x['streetname'], dfstreets), axis = 1)
     unfound_cnn = unfound_cnn[['cnn', 'lineid']]
     df = unfound.merge(unfound_cnn, left_on = 'cnn', right_on = 'cnn')
 
@@ -856,7 +851,8 @@ def pair_address(streetsweeping, streetvolume):
     gdf = gpd.GeoDataFrame(unfound, crs=crs, geometry=geometry)
     addresses = addresses[['lon', 'lat', 'number', 'street', 'address', 'streetname', 'nhood', 'lineid']]
     tqdm.pandas()
-    gdf['lineid'] = gdf.progress_apply(lambda x: find_closest_point(x['geometry'], x['street'], streetvolume), axis = 1)
+    dfstreets = streetvolume.copy()
+    gdf['lineid'] = gdf.progress_apply(lambda x: find_closest_point(x['geometry'], x['street'], dfstreets), axis = 1)
     addresses = addresses.append(gdf)
     addresses = addresses[['address', 'lat', 'lon', 'lineid', 'nhood', 'number', 'street', 'streetname']]
     addresses.to_sql('address_data', conn, if_exists = 'replace')
@@ -888,7 +884,7 @@ def pair_parking(streetvolume):
     total_join.sort_values(by = 'park_supply', ascending = False, inplace = True)
     total_join.drop_duplicates(subset = ['lineid'], inplace = True)
     total_join.to_file(proc_loc+ '/final_streets/SF_Street_Data.shp')
-    total_join.drop(columns = ['index_right', 'geometry'], inplace = True)
+    total_join.drop(columns = ['index_right', 'geometry', 'ST_NAME'], inplace = True)
     total_join.to_sql('street_volume_data', conn, if_exists = 'replace')
 
     return

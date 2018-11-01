@@ -2,10 +2,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import sqlite3
+import matplotlib as mpl
 
 raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
 proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
-image_loc= '/home/colin/Desktop/SF_Parking/reports/figures/analysis/model/'
+image_loc= '/home/colin/Desktop/SF_Parking/reports/figures/analysis/sweep/'
 
 
 mpl.rcParams['savefig.bbox'] = 'tight'
@@ -13,10 +14,10 @@ mpl.rcParams['figure.autolayout'] = True
 mpl.rc('xtick', labelsize = 8 )
 
 global conn
-conn = sqlite3.connect(raw_loc + 'SF_Parking.db')
+conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
+totalyears = 2.5
 
-
-def load_data()
+def load_data(totalyears):
     sweep = pd.read_sql_query('Select t1.lineid, fromhour, tohour, weekday, totalpermonth,  distance, nhood, park_supply from street_sweep_data t1 '
                   'join street_volume_data t2 on t1.lineid = t2.lineid', conn)
     ticks = pd.read_sql_query("Select TicketNumber, TickIssueDate, TickIssueTime, lineid from ticket_data t1 join address_data t2 "
@@ -36,7 +37,7 @@ def load_data()
 
     ticks['miles_swept_year'] = ticks['totalpermonth'] * 12 * ticks['distance']
 
-    ticks['success_rate'] = ticks['TicketNumber'] / ticks['miles_sweeped_year']
+    ticks['success_rate'] = ticks['TicketNumber'] / ticks['miles_swept_year']
 
     return ticks
 
@@ -47,7 +48,7 @@ def tick_per_month(ticks):
     plt.ylabel('Tickets per Mile Swept')
     plt.title('Average Tickets per Mile swept number of sweeps per month')
     plt.show()
-    plt.savefig(imageloc + 'TicksbySweep.png')
+    plt.savefig(image_loc + 'TicksbySweep.png')
     return
 
 def sweep_per_month(ticks):
@@ -58,12 +59,14 @@ def sweep_per_month(ticks):
     plt.xlabel('Total Sweeps per Month')
     plt.ylabel('Sweep Success Rate')
     plt.show()
-    plt.savefig(imageloc + 'SweepsPerMonth.png')
+    plt.savefig(image_loc + 'SweepsPerMonth.png')
     return
 
 def sweep_by_hour(ticks):
     by_hour = ticks.groupby(by = 'fromhour')['success_rate'].mean().plot(kind = 'bar')
     plt.title('Average Tickets per Mile Swept by Hour of Day Start')
+    plt.show()
+    plt.savefig(image_loc + 'SweepsbyHour.png')
 
 def by_day_of_week(ticks):
     plt.figure(figsize = (10,6))
@@ -74,13 +77,22 @@ def by_day_of_week(ticks):
     df.drop(columns = 'daynum', inplace = True)
     plt.bar(x = df['weekday'],height = df['success_rate'])
     plt.title('Average Tickets per Mile swept by Day of Week')
+    plt.savefig(image_loc + 'SweepsbyDay.png')
 
 
 def main():
-    ticks = load_data()
+    print('Loading Data into form for street cleaning')
+    ticks = load_data(totalyears)
+    print('creating total tickets per month ')
     tick_per_month(ticks)
+
+    print('creatingsweep success by number of sweeps')
     sweep_per_month(ticks)
+
+    print('creating sweep success by hour of day')
     sweep_by_hour(ticks)
+
+    print('creating sweep success by day of week')
     by_day_of_week(ticks)
 
 

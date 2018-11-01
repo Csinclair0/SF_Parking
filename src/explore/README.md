@@ -11,14 +11,18 @@ This source is meant to walk through the initial exploratory analysis while also
 
 ![Tickets by Neighborhood](/reports/figures/explore/TickByNhood.png)
 
-![Tickets by Hour(/reports/figures/explore/TickByHour.png)
+![Tickets by Hour](/reports/figures/explore/TickByHour.png)
 
 ![Street Clean By Hour](/reports/figures/explore/StreetCleanByHour.png)
+
 ![Tickets by hour by Neighborhood](/reports/figures/explore/ByHourByHood.png)
+
 ![Tickets by day by type](/reports/figures/explore/ByDayByType.png)
 
 ![Vehicle Type Share by Nhood](/reports/figures/explore/VehByNhood.png)
-![TicketType Share by Nhood](/reports/figures/explore/SharebyHood.png)
+
+![Ticket Type Share by Nhood](/reports/figures/explore/ShareByHood.png)
+
 
 ![Meters by neighborhood](/reports/figures/explore/MetbyNhood.png)
 
@@ -41,6 +45,6 @@ The next option is to plot the actual street volume on a matplotlib chart, as we
 
 the last option is to plot tickets on the map and color and their type. The user will be allowed to input how many tickets they would like. an example is shown below.
 
-![Ticket Map](/reports/maps/TicketMap.html)
+![Ticket Map](/reports/maps/ColorTicketMap.html)
 
 And that is it for the exploratory section! If you didn't get enough, you'll have the ability to generate some more maps in the extras section.

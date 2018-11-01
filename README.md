@@ -86,14 +86,17 @@ First I did some exploratory analysis just to look for some interesting takeaway
 Question 1:
 Streets with higher volumes of traffic get less tickets.
 
-Now for the main event. Let's use our finished sql database to associate the total number of residential overtime tickets associated with each street link. Then we can see if there is any significant differences between streets that have higher volumes. In order to make a 'fair' comparison by street, we'll convert the total tickets into total tickets per linear mile per year, using the distance of the street link.
+Now for the main event. Let's use our finished sql database to associate the total number of residential overtime tickets associated with each street link. First, we'll try to verify our cleaning process. Let's compare a map of all the streets that we've identified as residential overtime, compared with a true map of San Francisco Residential Areas.
+[!Model Streets](/reports/figures/analysis/model/idstreets.png)
+
+Then we can see if there is any significant differences between streets that have higher volumes. In order to make a 'fair' comparison by street, we'll convert the total tickets into total tickets per linear mile per year, using the distance of the street link.
 We'll create some high level plots to see if we can notice the effect we're looking for, before doing any specific tests. We'll also test the normality of our data. Both Street Volume and Total Tickets were best normalized by log-fitting the data. However, this does not eliminate that a large portion of the streets do not show any volume at all.
 
-![Street Normality](/reports/figures/analysis/initial/streetnormality.png)
+![Street Normality](/reports/figures/analysis/model/streetnormality.png)
 
 Let's also look at the scatter plot of total tickets vs street volume.
 
-![Volume Scatter Plot](/reports/figures/analysis/initial/VolumeScatter.png)
+![Volume Scatter Plot](/reports/figures/analysis/model/VolumeScatter.png)
 
 At first, it visually appears there is a trend declining as street volume increases. However,it is noticeable that there is still a large portion of the data that remains now, and does not follow the trend.
 
@@ -176,22 +179,28 @@ Now, we'll need to find total residential parking spots. We can't simply query t
 
 Now we can simply create an estimate of how many times they check each spot, over an average day. This will be used as our arrival rate. We'll split these checks over 10 hours, because most go for 12 hours, but if you park after the 10th you can't get a ticket because it will be less than 2 hours before until time is up. We get they will check each spot an average of 7.6 times per day.
 
+![arrival cdf](/reports/figures/analysis/park/arrivalcdf.png)
 
 Part 2.
 On each ticket, they write down what time they first came and marked your car, and then what time they wrote the ticket. This implies they have a list of which cars they marked and where, and attempt to go check on them. Unfortunately, the initial time checked and the time returned were not included in the data. We will have to look for special circumstances under which we can find a distribution. We will look for circumstances where a ticketing officer wrote two tickets on the same street, but not within roughly 2 and 4 hours  of each other. this is under the assumption he marked the first car after he wrote the second. We'll only look for the distribution between 2 and 3 hours, and use that. The distribution is shown below.
 
+![return distribution](/reports/figures/analysis/park/returndistro.png)
 
+![return distribution cdf](/reports/figures/analysis/park/returncdf.png)
 
 Now using some Bayesian methodologies, we can combine these two distributions and create one probability distribution over time for the average SF Street. Below is a cumulative Distribution Plot of receiving a residential overtime ticket versus time at that spot.
 
+![Total Distribution](/reports/figures/analysis/park/AverageCDFTotal.png)
 
 However, this study was based around the variability of arrival rates by streets, so lets use the arrival rates from our least and most patrolled streets, categorized from our regression model.
 
-Let's plot the the probability of each population segment and see there differences. Here we have to assume the arrival rate is directly proportional to how many tickets per spot are given out.
+![Split by Population](/reports/figures/analysis/park/SplitByPopCDF.png)
 
-![Ticket CDF](reports/figures/analysis/CDF_Ticket.png)
+Let's plot the the probability of each population segment and see there differences. Here we have to assume the arrival rate is directly proportional to how many tickets per spot are given out. Now let's only look at the average, worst, and best, and add 90% confidence intervals.
 
-Now let's only look at the average, worst, and best, and add confidence intervals.
+![Confidence Intervals](/reports/figures/analysis/CDFwCI.png)
+
+
 
 ## Street Cleaning Analysis
 As you can see in the exploratory notebook, residential overtime tickets are not my only foe. Street Cleaning actually makes up for an overwhelming majority of the tickets that are given out. I have a few things I would like to test:
@@ -203,10 +212,16 @@ For this, I created a measure for each street called "success rate", which effec
 
 1.  Below shows that as streets are cleaned more consistently, their "success rate" declines. Note that some streets may be cleaned 7 Days a Week by 5 weeks, showing up as 35 days here. That would not truely be the case, However, they are still significantly lower.  
 
+![Sweeps per Month](/reports/figures/analysis/sweep/SweepsPerMonth.png)
+
+
 2. The chart below shows success vs time cleaning started. We see that morning sweeping, and overnight are most effective.
 
+![Sweeps by Hour](/reports/figures/analysis/sweep/SweepsbyHour.png)
 
 3. Below shows chart of success rate by day of week. Seems like most people get caught off guard on the weekends.
+
+![Sweeps by Day](/reports/figures/analysis/sweep/SweepsbyDay.png)
 
 
 ## Few Extra Deliverables
@@ -218,4 +233,4 @@ Recent Street Cleaning - This will take an address as an argument, and return th
 
 Estimated Sweeping Time --Finding a spot is a tough gig in San Francisco, so I've found the best practice is to know when the sweeping truck is coming by and try to follow him. Unsurprisingly, I'm not the only one who does this and it usually results in a death match between all cars. If you put in an address here, I'll give you an estimate as well a confidence interval on the range of times I would expect the truck to arrive, so you don't have to sit around and wait.
 
-Map the Sweeping route -- This will create an animation of the street sweepers route , so you can see where to catch him next.
+Map the Sweeping route -- This will create a map of the sweeping route, colored by the arrival time of the street sweepers , so you can see where to catch him next.

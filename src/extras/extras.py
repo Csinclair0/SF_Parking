@@ -112,6 +112,8 @@ def live_day_graph(datestring, folderloc, address_data):
     #plt.show()
     ani.save(datestring, folderloc)
 
+    return
+
 
 def getweekofmon(dt):
     """function to take datetime and return what day of week it is.
@@ -191,7 +193,7 @@ def find_recent_street_cleaning(streetnumber, streetname, address_data, ResOT, i
 
 
 def mean_confidence_interval(data, confidence=0.95):
-    """Short summary.
+    """Generates a confidence interval on when the street cleaner usually arrives. Creates map of last ticket given, and creates a confidence interval
 
     Parameters
     ----------
@@ -231,7 +233,7 @@ def min_to_time(mins):
 
 
 def return_conf_interval(number, street, by_route, address_data):
-    """function looks up the closest address to the input,
+    """function looks up the closest address to the input, create a dataframe that includes the last ticket given at a street on each day a ticket was given, and then create a confidence interval on that.
 
     Parameters
     ----------
@@ -244,8 +246,8 @@ def return_conf_interval(number, street, by_route, address_data):
 
     Returns
     -------
-    type
-        Description of returned object.
+    none
+        prints output
 
     """
     ad = address_data[address_data.street == street]
@@ -262,10 +264,12 @@ def return_conf_interval(number, street, by_route, address_data):
     print("mean: " + min_to_time(mean))
     print("High: " + min_to_time(high))
 
+    return
+
 
 
 def map_the_route(weekday, by_route, streetvolume):
-    """Function to take a weekday and map out from earliest to last where the street sweepers travel.
+    """Function to take a weekday and map out from earliest to last where the street sweepers travel. Will plot on mplleaflet.
 
     Parameters
     ----------
@@ -280,7 +284,17 @@ def map_the_route(weekday, by_route, streetvolume):
 
     by_street = by_route[by_route.weekday ==weekday].groupby(by = 'lineid', as_index = False)['mins'].mean()
     df = streetvolume.merge(by_street, left_on = 'lineid', right_on = 'lineid')
-    df.plot(cmap = 'RdYlGn', column = 'mins', figsize = (20,20))
+    df.plot(cmap = 'Jet', column = 'mins', figsize = (20,20))
+    filename = (map_loc + 'RouteMap.html')
+    try:
+        os.remove(filename)
+    except:
+        pass
+    mplleaflet.show(fig=ax.figure, crs=streetvolume.crs, tiles='cartodb_positron', path = filename)
+    return
+
+
+    return
 
 
 def plot_model(numticks):
@@ -290,7 +304,7 @@ def plot_model(numticks):
     ----------
     numticks : int
         number of tickets to plot on the map
-        
+
     Returns
     -------
     html map
@@ -301,7 +315,7 @@ def plot_model(numticks):
             " t1.address =- t2.address where ViolationDESC = 'RES/OT' Limit + " + str(numticks), conn)
 
 
-    print('Loading model')
+    print('Loading final model')
     with open(proc_loc + 'Finalmodel.pkl', 'rb') as handle:
         model = pickle.load(handle)
     streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
@@ -364,6 +378,8 @@ def main():
         else:
             resOT = False
         find_recent_street_cleaning(streetnumber, streetname, address_data, ResOT, invalid_ids):
+
+
 
         case 3: number = input('Whats the number of the address?')
         street = input('What is the full street (name + suffix)')

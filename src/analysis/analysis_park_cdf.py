@@ -16,10 +16,9 @@ import pickle
 
 raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
 proc_loc = '/home/colin/Desktop/SF_Parking/data/processed/'
-image_loc= '/home/colin/Desktop/SF_Parking/reports/figures/analysis/model/'
+image_loc= '/home/colin/Desktop/SF_Parking/reports/figures/analysis/park/'
 
 
-mpl.rcParams['savefig.bbox'] = 'tight'
 mpl.rcParams['figure.autolayout'] = True
 mpl.rc('xtick', labelsize = 8 )
 
@@ -113,6 +112,7 @@ def create_initial_arrival_prob(df, streetdata):
     plt.title("Probability of a parking enforcement officer passing your car initially")
     plt.xlim(0,400)
     plt.show()
+    plt.savefig(image_loc + 'arrivalcdf.png')
 
     return arrival_rate
 
@@ -144,19 +144,23 @@ def create_return_distribution(df):
 
     df = df[(df.delta > 120) & (df.delta < 180)]
     df['delta'].hist(bins = 'auto')
+    plt.title('Return Distribution After Marking Car')
     plt.xlabel('Time from Initial Ticket')
     plt.ylabel('Frequency')
+    plt.grid(False)
     plt.show()
+    plt.savefig(image_loc + 'returndistro.png')
 
-    counts, bin_edges = np.histogram(df['delta'], bins = 'auto', normed = True)
+    counts, bin_edges = np.histogram(df['delta'], bins = 'auto', density = True)
 
     cdf = np.cumsum(counts)
-    plt.figure(figsize = (10,6))
+
     plt.plot(bin_edges[1:], cdf/cdf[-1])
     plt.xlabel('Time after initial marking')
     plt.ylabel('Probability')
     plt.title('CDF of return probability after initial marking')
     plt.show()
+    plt.savefig(image_loc + 'returncdf.png')
 
 
     values = df['delta']
@@ -210,13 +214,15 @@ def create_simulated_data(arrival, custom):
     secondpass = custom.rvs(size = 1000)
     totalprob =  firstpass + secondpass
 
-    counts, bin_edges = np.histogram(totalprob, bins = 'auto', normed = True)
+    counts, bin_edges = np.histogram(totalprob, bins = 'auto', density= True)
     cdf = np.cumsum(counts)
     plt.plot(bin_edges[1:], cdf/cdf[-1])
     plt.title('CDF of Receiving Residential Overtime Ticket on Average SF Street')
     plt.ylabel("Cumulative Probability")
     plt.xlabel("Time(minutes)")
+    plt.xlim(120, 600)
     plt.show()
+    plt.savefig(image_loc + 'AverageCDFTotal.png')
 
     return secondpass
 
@@ -244,7 +250,7 @@ def plot_mean(mean, secondpass, title, color):
     x = np.random.random(size = 1000)
     firstpass_mean = [f(x, mean) for x in x]
     totalprob_mean =  firstpass_mean + secondpass
-    counts_mean, bin_edges_mean = np.histogram(totalprob_mean, bins = 'auto', normed = True)
+    counts_mean, bin_edges_mean = np.histogram(totalprob_mean, bins = 'auto', density = True)
     cdf_mean = np.cumsum(counts_mean)
     plt.plot(bin_edges_mean[1:], cdf_mean/cdf_mean[-1], color =color, label = title)
 
@@ -280,10 +286,11 @@ def split_by_pop(arrival_rate, secondpass, means):
     plt.xlim(120,600)
     plt.title('Probability of receiveing a ticket, split by OLS fitted volume populations')
     plt.show()
+    plt.savefig(image_loc + 'SplitByPopCDF.png')
 
     return
 
-def plot_mean_ci(mean, lci, uci, secondpass,  title, color):
+def plot_mean_ci(mean, lci, uci, secondpass,  title, color, ax):
     """This function will be used to create condifence intervals on the ticket probability distribution. It will take the lower and upper confidence intervals to create new distributions, and will fill the area between them.
 
     Parameters
@@ -307,7 +314,6 @@ def plot_mean_ci(mean, lci, uci, secondpass,  title, color):
         plots new lines
 
     """
-    plt.figure(figsize = (10,6))
     x = np.random.random(size = 1000)
     firstpass_lci = [f(x, lci) for x in x]
     firstpass_mean = [f(x, mean) for x in x]
@@ -328,8 +334,8 @@ def plot_mean_ci(mean, lci, uci, secondpass,  title, color):
     cdf_high = np.cumsum(counts_high)
 
     x_ = bin_edges_mean[1:]
-    plt.plot(bin_edges_mean[1:], cdf_mean/cdf_mean[-1], color = color, label = title)
-    plt.fill_between( x_,cdf_low/cdf_low[-1], cdf_high/cdf_high[-1], color = color, alpha = .25)
+    ax.plot(bin_edges_mean[1:], cdf_mean/cdf_mean[-1], color = color, label = title)
+    ax.fill_between( x_,cdf_low/cdf_low[-1], cdf_high/cdf_high[-1], color = color, alpha = .25)
 
     return
 
@@ -355,7 +361,7 @@ def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
         plots mean and conficence intervals
 
     """
-    plt.figure(figsize = (10,6))
+    """
     arrival_lci = arrival_rate *   means['base'] / (means['base'] + 1.64*stds['base'])
     arrival_uci = arrival_rate *  means['base'] / (means['base'] - 1.64*stds['base'])
 
@@ -366,19 +372,51 @@ def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
     arrival_worst = arrival_rate * means['base'] / means[10]
     arrival_worst_lci = arrival_rate * means['base'] / (means[1] - 1.64*stds[1])
     arrival_worst_uci = arrival_rate * means['base'] / (means[1] + 1.64*stds[1])
+    """
+    pops = {'worst': (10, 'red'), 'best': (1, 'green'), 'base':('base', 'blue')}
+    for key, value in pops.items():
+        val = value[0]
+        color = value[1]
+        mean =  arrival_rate *  means[val] / means['base']
+        lci = arrival_rate *  (means[val] + 1.96*stds[val]) / means['base']
+        uci = arrival_rate *  (means[val] - 1.96*stds[val]) / means['base']
 
-    x = np.random.random(size = 1000)
-    plt.figure(figsize = (10,6))
-    plot_mean_ci(arrival_rate, arrival_lci, arrival_uci,secondpass,  'Baseline', 'blue')
-    plot_mean_ci(arrival_best, arrival_best_lci, arrival_best_uci, secondpass, 'Best', 'green')
-    plot_mean_ci(arrival_worst, arrival_worst_lci, arrival_worst_uci,secondpass,  'Worst', 'red')
-    plt.title('CDF of Receiving Residential Overtime Ticket on different model street populations, SF Street W 90% confidence intervals')
-    plt.ylabel("Cumulative Probability")
-    plt.xlabel("Time(minutes)")
+        x = np.random.random(size = 1000)
+        firstpass_lci = [f(x, lci) for x in x]
+        firstpass_mean = [f(x, mean) for x in x]
+        firstpass_uci = [f(x, uci) for x in x]
+
+        totalprob_lci =  firstpass_lci + secondpass
+        totalprob_mean =  firstpass_mean + secondpass
+        totalprob_uci =  firstpass_uci + secondpass
+
+
+        counts_mean, bin_edges_mean = np.histogram(totalprob_mean, bins =100, density = True)
+        cdf_mean = np.cumsum(counts_mean)
+
+        counts_low, bin_edges_low = np.histogram(totalprob_lci, bins = 100, density = True)
+        cdf_low = np.cumsum(counts_low)
+
+        counts_high, bin_edges_high = np.histogram(totalprob_uci, bins = 100, density = True)
+        cdf_high = np.cumsum(counts_high)
+
+        x_ = bin_edges_mean[1:]
+        plt.plot(bin_edges_mean[1:], cdf_mean/cdf_mean[-1], color = color, label = key)
+        plt.fill_between( x_,cdf_low/cdf_low[-1], cdf_high/cdf_high[-1], color = color, alpha = .25)
+        print(lci)
+        print(uci)
+        print(cdf_low/cdf_low[-1])
+        print(cdf_high/cdf_high[-1])
+        print(means)
+        print(stds)
+
+
+
     plt.legend()
-    plt.set_xlim(120,480)
-    plt.xticks(np.arange(120,480,30))
+    plt.xlim(120,600)
+    plt.xticks(np.arange(120,600,30))
     plt.show()
+    plt.savefig(image_loc + 'CDFwCI.png')
     return
 
 
@@ -407,7 +445,7 @@ def main():
     print('Creating initial arrival probability')
     arrival_rate = create_initial_arrival_prob(df, streetdata)
 
-    print('Creatng second arrival probability')
+    print('Creating second arrival probability')
     second_prob = create_return_distribution(df)
 
     secondpass = create_simulated_data(arrival_rate, second_prob)

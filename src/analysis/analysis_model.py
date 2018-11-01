@@ -28,7 +28,7 @@ mpl.rcParams['figure.autolayout'] = True
 mpl.rc('xtick', labelsize = 8 )
 
 global conn
-conn = sqlite3.connect(raw_loc + 'SF_Parking.db')
+conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
 
 
 def create_street_data():
@@ -120,9 +120,10 @@ def show_street_map(streets):
 
     df = streetvolume.merge(streets, left_on = 'lineid', right_on = 'lineid')
 
-    df.plot(figsize = (20,20), color = 'Red')
+    df.plot(figsize = (10,10), color = 'Red')
     plt.title('Streets identified as Residential Overtime Areas')
     plt.show()
+    plt.savefig(image_loc + 'idstreets.png')
     return
 
 
@@ -171,6 +172,7 @@ def show_street_plots(streets):
         axplots[1].plot(ticks, tick_normals.pdf(ticks))
         fig.suptitle('Feature Normality Plots')
         fig.show()
+        fig.savefig(image_loc + 'streetnormality.png')
 
 
 
@@ -187,6 +189,7 @@ def show_street_plots(streets):
         ax.set_axisbelow(True)
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
         fig.show()
+        fig.savefig(image_loc + 'volvstix.png')
 
 
 
@@ -202,7 +205,7 @@ def show_street_plots(streets):
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
         title = 'VolvsTixMile.png'
         fig.show()
-
+        fig.savefig(image_loc + 'volvstixmile.png')
 
     return
 
@@ -232,6 +235,7 @@ def show_street_plots_parking(streets):
     ax.set_ylabel('Tickets per 100 spots per year')
     ax.set_xlabel('Total Street Volume')
     fig.show()
+    fig.savefig(image_loc + 'volvsparkspots.png')
     return
 
 
@@ -260,6 +264,7 @@ def two_pop_test(streets):
     plt.ylabel('Tickets per Mile (log)')
     plt.show()
     res = stats.ttest_ind(df_lowvol['tickpermile'], df_highvol['tickpermile'], equal_var = False)
+    plt.savefigs(image_loc +  'twopopbox.png')
     print('Comparing Means')
     print(res)
     return

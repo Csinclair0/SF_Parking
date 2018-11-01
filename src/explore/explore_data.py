@@ -355,7 +355,7 @@ def project_to_line(lineid, streetvolume, point):
     return npoint
 
 
-def volume_maps(ticket_data):
+def volume_maps(ticket_data, streetvolume):
     """Function to plot volume maps, while coloring streets using colormap. We'll also add tickets if you user requests.
 
     Parameters
@@ -372,9 +372,7 @@ def volume_maps(ticket_data):
     """
     print('Creating Volume Map')
     choice = int(input('How many tickets would you like to add?'))
-    streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
     choice2 = input('Would you like to project the address data onto the street?(Y or N)')
-    streetvolume = streetvolume.to_crs(epsg = 4326)
     times = ['am', 'pm', 'ev', 'ea']
     for time in times:
         streetvolume['totalinv_' + time]  = streetvolume['total_'+time].apply(lambda x: np.log(1/(x+.5)))
@@ -406,7 +404,7 @@ def volume_maps(ticket_data):
 
 
 
-def colored_ticket_map(ticket_data, address_data):
+def colored_ticket_map(ticket_data, address_data, streetvolume):
     """Function to plot volume maps, while coloring streets using colormap. We'll also add tickets if you user requests.
 
     Parameters
@@ -438,7 +436,7 @@ def colored_ticket_map(ticket_data, address_data):
             print('Projecting Addresses to Street')
             gdf['geometry'] = gdf.progress_apply(lambda x: project_to_line(x['lineid'], streetvolume, x['geometry']), axis = 1)
         ax = gdf.plot( marker = "*", color=colors, markersize=2);
-    filename = (map_loc + 'TicketMap.html')
+    filename = (map_loc + 'ColorTicketMap.html')
     try:
         os.remove(filename)
     except:
@@ -489,15 +487,16 @@ def main():
             create_heatmap_query(querystring)
             choice = input('Would you like another?')
 
-
+    streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
+    streetvolume = streetvolume.to_crs(epsg = 4326)
     choice = input('Would you like to see a volume plot? (Y or N)')
     if choice == 'Y':
-        volume_maps(ticket_data)
+        volume_maps(ticket_data, streetvolume)
 
 
     choice = input('Would you like to plot some tickets colored by type? (Y or N)')
     if choice == 'Y':
-        colored_ticket_map(ticket_data)
+        colored_ticket_map(ticket_data, address_data, streetvolume)
 
     print('You have made it through the Exploratory section!')
 
