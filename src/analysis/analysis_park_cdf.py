@@ -276,9 +276,9 @@ def split_by_pop(arrival_rate, secondpass, means):
 
     """
     for i in range(1,11):
-        mean= arrival_rate * means['base'] / means[i]
+        mean= arrival_rate * means[i] / means['base']
         title = 'pop' + str(i)
-        color = plt.cm.RdYlGn(i/10)
+        color = plt.cm.RdYlGn(1-i/10)
         plot_mean(mean, secondpass, title, color)
     plt.legend()
     plt.xlabel('Time(minutes)')
@@ -361,26 +361,15 @@ def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
         plots mean and conficence intervals
 
     """
-    """
-    arrival_lci = arrival_rate *   means['base'] / (means['base'] + 1.64*stds['base'])
-    arrival_uci = arrival_rate *  means['base'] / (means['base'] - 1.64*stds['base'])
 
-    arrival_best = arrival_rate * means['base'] / means[1]
-    arrival_best_lci = arrival_rate * means['base'] / (means[10] - 1.64*stds[10])
-    arrival_best_uci = arrival_rate * means['base'] / (means[10] + 1.64*stds[10])
-
-    arrival_worst = arrival_rate * means['base'] / means[10]
-    arrival_worst_lci = arrival_rate * means['base'] / (means[1] - 1.64*stds[1])
-    arrival_worst_uci = arrival_rate * means['base'] / (means[1] + 1.64*stds[1])
-    """
     pops = {'worst': (10, 'red'), 'best': (1, 'green'), 'base':('base', 'blue')}
+
     for key, value in pops.items():
         val = value[0]
         color = value[1]
         mean =  arrival_rate *  means[val] / means['base']
-        lci = arrival_rate *  (means[val] + 1.96*stds[val]) / means['base']
-        uci = arrival_rate *  (means[val] - 1.96*stds[val]) / means['base']
-
+        lci = arrival_rate *  (means[val] + 1.64 *stds[val]) / means['base']
+        uci = arrival_rate *  (means[val] - 1.64 * stds[val]) / means['base']
         x = np.random.random(size = 1000)
         firstpass_lci = [f(x, lci) for x in x]
         firstpass_mean = [f(x, mean) for x in x]
@@ -403,12 +392,6 @@ def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
         x_ = bin_edges_mean[1:]
         plt.plot(bin_edges_mean[1:], cdf_mean/cdf_mean[-1], color = color, label = key)
         plt.fill_between( x_,cdf_low/cdf_low[-1], cdf_high/cdf_high[-1], color = color, alpha = .25)
-        print(lci)
-        print(uci)
-        print(cdf_low/cdf_low[-1])
-        print(cdf_high/cdf_high[-1])
-        print(means)
-        print(stds)
 
 
 
@@ -416,7 +399,7 @@ def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
     plt.xlim(120,600)
     plt.xticks(np.arange(120,600,30))
     plt.show()
-    plt.savefig(image_loc + 'CDFwCI.png')
+    plt.savefig(image_loc + 'CDFwSD.png')
     return
 
 

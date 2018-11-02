@@ -482,10 +482,6 @@ def feature_analysis(streets, parking):
 
 def log_feature_analysis(streets, parking):
     print("Let's log fit the features and try again")
-    df = streets
-    columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
-    for column in columns:
-        df[column] = df[column] + 0.01
     if parking == True:
         formstring = 'tickperspot ~np.log(vvol_trkea)+np.log(vvol_carea)+np.log(vvol_busea)+np.log(speed_ea) + np.log(parkpermile) + oneway'
     else:
@@ -528,9 +524,6 @@ def log_feature_analysis(streets, parking):
 
 def interaction_model(streets):
 
-    choice = input('Would you like to include all interaction effects in a model?')
-
-    if choice == 'Y':
         columnlist = ['vvol_carea', 'vvol_trkea', 'vvol_busea', 'speed_ea', 'parkpermile', 'distance', 'oneway']
         formulastring = 'tickperspot ~ '
 
@@ -549,6 +542,19 @@ def interaction_model(streets):
 
 
 def final_model(streets):
+    """creates final model that we will use.
+
+    Parameters
+    ----------
+    streets : dataframe
+        dataframe of streets, number of tickets, and attributes up to this point
+
+    Returns
+    -------
+    means, stds
+        Dataframe of mean values and standard deviations of our 10 populations.
+
+    """
 
     formstring = 'tickperspot ~np.log(vvol_trkea)+np.log(vvol_carea)+np.log(vvol_busea)+np.log(speed_ea) + np.log(parkpermile)'\
         ' + parkpermile:distance + oneway'
@@ -560,21 +566,10 @@ def final_model(streets):
     plt.axis('off')
     plt.tight_layout()
     plt.show()
-
-    choice = input('Would you like to bootstrap some population means based off fitted values?')
     streets['fitted'] =  res.fittedvalues
     streets.sort_values(by = 'fitted', ascending = False, inplace = True)
-    if choice == 'Y':
-        done = 'N'
-        while done != "Y":
-            count = int(input("How many populations would you like?"))
-            if count > 0:
-                means, stds = split_pop_test(streets, count, True,True, 'final model', baseline = True)
-                print('The difference between our best and worst population means was {:.1%}'.format((1 - (means[10]/ means[1]))))
-            else:
-                print('Invalid input, put an integer')
-            done = input('Are you done? (Y or N)')
-
+    means, stds = split_pop_test(streets, 10, True,True, 'final model', baseline = True)
+    print('The difference between our best and worst population means was {:.1%}'.format((1 - (means[10]/ means[1]))))
     return means, stds
 
 
@@ -618,6 +613,10 @@ def main():
 
     choice = input('Would you like to log fit the features and try again?')
     if choice == 'Y':
+        df = streets
+        columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
+        for column in columns:
+            df[column] = df[column] + 0.01
         streets= log_feature_analysis(streets, False)
 
 
@@ -639,7 +638,7 @@ def main():
             done = 'N'
             while count < 0 and done != "Y":
                 count = int(input("How many populations would you like?"))
-                means, stds = split_pop_test(streets, count, True, True, 'volume only model w parking')
+                means, stds = split_pop_test(streets, count, False, True, 'volume only model w parking')
                 print('The difference between our best and worst population means was {:.1%}'.format((1 - (means[10]/ means[1]))))
                 done = input('Are you done? (Y or N)')
 
@@ -649,9 +648,19 @@ def main():
             print('Beginning feature analysis')
             feature_analysis(streets, True)
 
+        df = streets
+        columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
+        for column in columns:
+            df[column] = df[column] + 0.01
+
         choice = input('Would you like to log fit the features and try again?')
         if choice == 'Y':
             streets = log_feature_analysis(streets, True)
+
+        choice = input('Would you like to include all interaction effects in a model?')
+
+        if choice == 'Y':
+            interaction_model()
 
         print("We're going to create the final model now")
 
