@@ -41,7 +41,7 @@ This heatmap shows residential overtime tickets, and validates that our cleaning
 
 The next option is to plot the actual street volume on a matplotlib chart, as well as all tickets. The user will be prompted to ask how many tickets they would like to add to the chart.
 
-[Volume Map](/reports/maps/VolumeMap.html){target = "_blank"}
+[Volume Map](/reports/maps/VolumeMap.html){:target = "_blank"}
 
 the last option is to plot tickets on the map and color and their type. The user will be allowed to input how many tickets they would like. an example is shown below.
 
