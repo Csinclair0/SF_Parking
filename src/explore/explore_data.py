@@ -60,7 +60,7 @@ def data_by_meter(address_data):
     return
 
 
-def load_data():
+def load_data_explore():
     """
     Function to load and associate all tickets with an address for further analysis.
 
@@ -465,7 +465,7 @@ def main():
 
     """
     print('Loading Data in usable form for analysis')
-    ticket_data, address_data = load_data()
+    ticket_data, address_data = load_data_explore()
     choice = input('Welcome to the Exploratory Section. You wanna See some charts? We got plenty.(Y or N)')
     if choice == 'Y':
         generate_plots(ticket_data, address_data)

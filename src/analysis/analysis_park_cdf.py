@@ -31,7 +31,7 @@ def delta_minutes(x,y):
     return timedelta.seconds / 60
 
 
-def load_data():
+def load_data_cdf():
     """Function is made to pull all data sources needed fot the entire analysis. It will merge these data sources into usable form, and also return just the street data.
 
     Returns
@@ -148,8 +148,9 @@ def create_return_distribution(df):
     plt.xlabel('Time from Initial Ticket')
     plt.ylabel('Frequency')
     plt.grid(False)
-    plt.show()
     plt.savefig(image_loc + 'returndistro.png')
+    plt.show()
+
 
     counts, bin_edges = np.histogram(df['delta'], bins = 'auto', density = True)
 
@@ -159,8 +160,8 @@ def create_return_distribution(df):
     plt.xlabel('Time after initial marking')
     plt.ylabel('Probability')
     plt.title('CDF of return probability after initial marking')
-    plt.show()
     plt.savefig(image_loc + 'returncdf.png')
+    plt.show()
 
 
     values = df['delta']
@@ -221,8 +222,8 @@ def create_simulated_data(arrival, custom):
     plt.ylabel("Cumulative Probability")
     plt.xlabel("Time(minutes)")
     plt.xlim(120, 600)
-    plt.show()
     plt.savefig(image_loc + 'AverageCDFTotal.png')
+    plt.show()
 
     return secondpass
 
@@ -285,8 +286,8 @@ def split_by_pop(arrival_rate, secondpass, means):
     plt.ylabel('Probability')
     plt.xlim(120,600)
     plt.title('Probability of receiveing a ticket, split by OLS fitted volume populations')
-    plt.show()
     plt.savefig(image_loc + 'SplitByPopCDF.png')
+    plt.show()
 
     return
 
@@ -398,8 +399,9 @@ def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
     plt.legend()
     plt.xlim(120,600)
     plt.xticks(np.arange(120,600,30))
-    plt.show()
+    plt.title('Ticket Probabilty over time for different population groups')
     plt.savefig(image_loc + 'CDFwSD.png')
+    plt.show()
     return
 
 
@@ -424,7 +426,7 @@ def main():
         stds = pickle.load(handle)
 
 
-    df, streetdata = load_data()
+    df, streetdata = load_data_cdf()
     print('Creating initial arrival probability')
     arrival_rate = create_initial_arrival_prob(df, streetdata)
 

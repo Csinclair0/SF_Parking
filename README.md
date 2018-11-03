@@ -28,16 +28,12 @@ Project Organization
 
 ```
 
-## Project Workflow
-
-
-
 
 ## Project Walkthrough
 
 
 ## Goal
-In order to get a residential parking permit in San Francisco, you must change your address on your both your license and vehicle registration. With a transient person such as myself switching locations every year, a broken online system for changing your address, and deadlines for each permit that change at random schedules (There is hardly a discounted rate for a permit that expires in one month), I often have found myself trying to play the odds on where I could park my car and for how long. As you'll see in the exploration notebook, I have been very unsuccessful in these attempts. Throughout all of these failed attempts I have developed one main theory that I would like to test. The hypothesis is that streets with higher volume are less susceptible to residential overtime tickets, a product of traffic enforcement officers fearing the very traffic they patrol. While exploring that main theory, I also looked at a few other theories that I generated while exploring the data.
+In order to get a residential parking permit in San Francisco, you must change your address on your both your license and vehicle registration. With a transient person such as myself switching locations every year, a broken online system for changing your address(cough cough for multiple years now), and deadlines for each permit that change at random schedules (There is hardly a discounted rate for a permit that expires in one month), I often have found myself trying to play the odds on where I could park my car and for how long. As you'll see in the exploration notebook, I have been very unsuccessful in these attempts. Throughout all of these failed attempts I have developed one main theory that I would like to test. The hypothesis is that streets with higher volume are less susceptible to residential overtime tickets, a product of traffic enforcement officers fearing the very traffic they patrol. While exploring that main theory, I also looked at a few other theories that I generated while exploring the data.
 
 ## Data Collection
 I filed a public data request from San Francisco asking for a years worth of parking ticket data. They gave me over twice as much as I had asked for, almost 3 million tickets in total. They also provided a text file of all block limits and street intersections, as well as a decoder for what issueing agencies ID's were.
@@ -56,8 +52,9 @@ While I was at it, I found the street cleaning routes from openDataSF.com, also 
 Because of the large nature of the database, it was stored in SQLite. The finished Schema is shown below.
 ![Sql Schema](reports/figures/sqldb.png)
 
-The whole cleaning process can take up to about 3 hours. I have made both raw and processed data available here for download.
+The whole cleaning process can take up to about 3 hours. I have made both raw and processed data available [here](insert link) for download. A summary diagram of the entire process is tabled below.
 
+![Data Work Flow](reports/figures/DataWorkFlow.png)
 
 In order to get a relational database that could pair a ticket with a street id, the first task was to associate an address with every ticket. The ticket data does not include the street suffix, which will cause more issues later on, but for now that means we would like to strip out just the street name from the address data so we have something to join on. Then we can use this table to query against what doesn't match. We'll then find what doesn't match, and we'll look for "similar" addresses. These will be addresses that share a street name, are on the same block(address rounded to 100 ), and block side (Odd or even).
 
@@ -76,7 +73,6 @@ Once these tables were created, we now had a relational database that can be use
 ## Initial Exploration Findings
 (few interesting initial)
 First I did some exploratory analysis just to look for some interesting takeaways in the data, as well as ensure the data was processed properly and no major holes existed. There are quite a few graphs generated in the notebooks, so I placed them in a separate [readme file](src/explore/README.md) in the explore data older.
-
 
 
 ## Testing The theory

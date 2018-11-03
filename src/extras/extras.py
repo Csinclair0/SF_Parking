@@ -24,7 +24,7 @@ map_loc = '/home/colin/Desktop/SF_Parking/reports/maps/'
 conn = sqlite3.connect(proc_loc + 'SF_Parking.db')
 colordict = {'STR CLEAN': 'cyan', 'RES/OT': 'green', 'MTR OUT DT': 'red', 'DRIVEWAY': 'orange', 'DBL PARK':'blue'}
 
-
+"""
 def project_to_line(lineid, streetvolume, point):
 
     df = streetvolume[streetvolume.lineid == lineid]
@@ -40,9 +40,9 @@ def project_to_line(lineid, streetvolume, point):
     npoint = u + n*np.dot(x - u, n)
     npoint = Point(npoint[0], npoint[1])
     return npoint
+"""
 
-
-def load_data():
+def load_data_extra():
     """Loads all required dataframes for use.
     Returns
     -------
@@ -112,15 +112,20 @@ def live_day_graph(datestring, address_data, streetvolume):
     gdf.sort_values(by = 'TickIssueDate', inplace = True)
     gdf['TickIssueDate'] = gdf['TickIssueDate'].apply(lambda x: dt.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
     gdf['TickIssueTime'] = gdf['TickIssueDate'].apply(lambda x: x.time().hour*60 + int(x.time().minute))
-    ttl = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center')
+    ttl = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center', fontsize = 12)
     numframes = gdf.shape[0]
     i = 0
 
     def animate(i):
-        if i%240 == 0:
-            print('hour ' + str(i/240) + ' finished')
+        if i%240 == 0 and i > 0:
+            print('hour ' + str(int(i/240) * 4) + ' finished')
         df = gdf[gdf.TickIssueTime == i]
-        timestr = (str(math.floor(i/4)) + ':' + str((i %4) * 15))
+        minnum = (i %60)
+        if minnum < 10:
+            minstring = '0' + str(minnum)
+        else:
+            minstring = str(minnum)
+        timestr = str(math.floor(i/60)) + ':' + minstring
         colors = df['color']
         iterar = df.plot(ax = ax, marker = '*', c = colors, markersize = 10 )
         ttl.set_text(timestr)
@@ -290,6 +295,23 @@ def return_conf_interval(number, street, by_route, address_data):
 
 
 def map_route_video(weekday, df, streetvolume):
+    """creates a map route video of a given day.
+
+    Parameters
+    ----------
+    weekday : string
+        day of week
+    df : geodataframe
+        streets cleaned that day with estimated time
+    streetvolume : geodataframe
+        Street volume dataframe
+
+    Returns
+    -------
+    none
+        saves video
+
+    """
     fig = plt.figure(figsize = (20,20))
     ax = plt.axes()
     plt.rcParams["animation.html"] = "jshtml"
@@ -306,11 +328,17 @@ def map_route_video(weekday, df, streetvolume):
     i = 0
     df['mins'] = df['mins'].apply(lambda x: math.ceil(x))
 
-    def animate(i):
-        if i%240 == 0:
-            print('hour ' + str(i/240) + ' finished')
+
+    def animate(i): ##inside function for animation
+        if i%240 == 0 and i > 0:
+            print('hour ' + str(int(i/240)* 4 ) + ' finished')
         gdf = df[df.mins == i]
-        timestr = (str(math.floor(i/60)) + ':' + str((i %60)))
+        minnum = (i %60)
+        if minnum < 10:
+            minstring = '0' + str(minnum)
+        else:
+            minstring = str(minnum)
+        timestr = str(math.floor(i/60)) + ':' + minstring
         iterar = gdf.plot(ax = ax, color = 'red', alpha = 1, linewidth = 1 )
         ttl.set_text(timestr)
         i += 1
@@ -325,6 +353,8 @@ def map_route_video(weekday, df, streetvolume):
     ani.save( map_loc + weekday + 'cleaning.mp4', writer = writer)
 
     return
+
+
 
 
 def map_the_route(weekday, by_route, streetvolume):
@@ -421,7 +451,7 @@ def main():
     """
     weekdaydict = {'Mon':1,'Tues':2, 'Wed':3, 'Thurs': 4, 'Fri': 5, 'Sat':6, 'Sun': 7}
     print("Preparing all neccesary datasets")
-    address_data, streetvolume, nhoods, streetsweeping = load_data()
+    address_data, streetvolume, nhoods, streetsweeping = load_data_extra()
     by_route = create_routes()
     invalid_ids = False
 

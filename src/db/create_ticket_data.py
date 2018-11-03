@@ -769,6 +769,8 @@ def process_volume():
     streetsweeping = gpd.read_file(raw_loc + '/street_sweeping/Street_Sweeping.shp')
     streetsweeping['streetname'] = streetsweeping['streetname'].apply(return_street)
     streetsweeping['totalpermonth'] = 0
+    streetsweeping = streetsweeping[streetsweeping.weekday != 'Holiday']
+    streetsweeping.drop_duplicates(subset = ['cnn', 'blockside', 'weekday'], inplace = True)
     for i in np.arange(1,6):
         colname = 'week' + str(i) + 'ofmon'
         streetsweeping[colname] = streetsweeping[colname].apply(lambda x: 1 if x == 'Y' else 0 )
@@ -781,7 +783,6 @@ def process_volume():
     for i in np.arange(1,6):
         colname = 'week' + str(i) + 'ofmon'
         df[colname] = df[colname].apply(lambda x: 1 if x >=1 else 0 )
-    streetsweeping.drop_duplicates(subset = ['cnn', 'blockside', 'weekday'], inplace = True)
     streetsweeping.drop(columns = ['totalpermonth', 'week1ofmon', 'week2ofmon', 'week3ofmon', 'week4ofmon', 'week5ofmon'] , inplace = True)
     streetsweeping = streetsweeping.merge(df, left_on = ['cnn', 'blockside', 'weekday'], right_on = ['cnn', 'blockside', 'weekday'])
     streetvolume_j = streetvolume[['lineid', 'geometry', 'streetname', 'total_ea']]

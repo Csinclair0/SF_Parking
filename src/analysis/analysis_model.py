@@ -122,8 +122,8 @@ def show_street_map(streets):
 
     df.plot(figsize = (10,10), color = 'Red')
     plt.title('Streets identified as Residential Overtime Areas')
-    plt.show()
     plt.savefig(image_loc + 'idstreets.png')
+    plt.show()
     return
 
 
@@ -171,8 +171,8 @@ def show_street_plots(streets):
         axplots[1].set_xlabel('Total Tickets(log)')
         axplots[1].plot(ticks, tick_normals.pdf(ticks))
         fig.suptitle('Feature Normality Plots')
-        fig.show()
         fig.savefig(image_loc + 'streetnormality.png')
+        fig.show()
 
 
 
@@ -188,8 +188,8 @@ def show_street_plots(streets):
         ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
         ax.set_axisbelow(True)
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
-        fig.show()
         fig.savefig(image_loc + 'volvstix.png')
+        fig.show()
 
 
 
@@ -204,8 +204,8 @@ def show_street_plots(streets):
         ax.set_axisbelow(True)
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
         title = 'VolvsTixMile.png'
-        fig.show()
         fig.savefig(image_loc + 'volvstixmile.png')
+        fig.show()
 
     return
 
@@ -234,8 +234,8 @@ def show_street_plots_parking(streets):
     ax.set_title('Scatter Plot of Total Street Volume vs. Total Tickets per 100 spots per Year')
     ax.set_ylabel('Tickets per 100 spots per year')
     ax.set_xlabel('Total Street Volume')
-    fig.show()
     fig.savefig(image_loc + 'volvsparkspots.png')
+    fig.show()
     return
 
 
@@ -262,9 +262,9 @@ def two_pop_test(streets):
     plt.title('Box Plot of Tickets per Mile, split by street volume')
     plt.xticks(np.arange(1,3), labels = ('Lower Volume', 'Higher Volume'))
     plt.ylabel('Tickets per Mile (log)')
-    plt.show()
     res = stats.ttest_ind(df_lowvol['tickpermile'], df_highvol['tickpermile'], equal_var = False)
-    plt.savefigs(image_loc +  'twopopbox.png')
+    plt.savefig(image_loc +  'twopopbox.png')
+    plt.show()
     print('Comparing Means')
     print(res)
     return
@@ -660,7 +660,7 @@ def main():
         choice = input('Would you like to include all interaction effects in a model?')
 
         if choice == 'Y':
-            interaction_model()
+            interaction_model(streets)
 
         print("We're going to create the final model now")
 
