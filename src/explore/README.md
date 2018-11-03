@@ -45,6 +45,6 @@ The next option is to plot the actual street volume on a matplotlib chart, as we
 
 the last option is to plot tickets on the map and color and their type. The user will be allowed to input how many tickets they would like. an example is shown below.
 
-![Ticket Map](/reports/maps/ColorTicketMap.html)
+![Ticket Map](/reports/maps/ColorTicketMap.html){target="_blank"}.
 
 And that is it for the exploratory section! If you didn't get enough, you'll have the ability to generate some more maps in the extras section.
