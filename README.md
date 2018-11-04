@@ -12,6 +12,7 @@ Project Organization
 |
 ├── reports                      <-Generated analysis
 │   └── figures                  <-All Figures used in README or generated from analysis
+|    └── MAPS                   <-
 |
 |
 └── src                         <- Source code for use in project
@@ -66,7 +67,7 @@ Now that we have the address data, we will loop through all tickets and associat
 
 We know that no avenue after 15th is residential permit(unless its numbered 2200 - 2600 which can go up to 21st), so we can assume those are 'ST' Anything else over 21st will be assumed ST. For the rest, we'll query all the neighborhoods that specific ticket issuer was at during that day in time(for addresses we know, IE single valid address). We'll then sort the list of potential addresses based on how close the issueing time was to the ticket we are trying to look up. We then use the sorted list to re-index the potential addresses based on the associated neighborhoods. We'll choose the closest. If there's no matches (IE they didn't show up in either neighborhood, we'll choose one randomly based on how many addresses are at each street)
 
-Once we had processed ticket data, we need to find a way to connect it to the street volume data. The street volume data does not include address limits, but it does include the street name. The street cleaning file does have the address limits. So what I did was join the two shapefiles together, and filter only on matches that have the same street name. The rest will have to use a closest distance function. Now we can merge our street cleaning data using our street and number. Then we can associate it with the street volume id that was This will allow us to associate every ticket with a valid address to a valid street volume data point. A street id was created on the geodataframe, and it was then saved as a different file so we can save the identification that matches our street index and use it later properly. The street volume data points were also stored in the SQLite Database.
+Once we had processed ticket data, we need to find a way to connect it to the street volume data. The street volume data does not include address limits, but it does include the street name. The street cleaning file does have the address limits. So what I did was join the two shapefiles together, and filter only on matches that have the same street name, and pick the closest joined street based off the distance from the bounds of each line. The rest will have to use a closest distance function. Now we can merge our street cleaning data using our street and number. Then we can associate it with the street volume id that was This will allow us to associate every ticket with a valid address to a valid street volume data point. A street id was created on the geodataframe, and it was then saved as a different file so we can save the identification that matches our street index and use it later properly. The street volume data points were also stored in the SQLite Database.
 
 Once these tables were created, we now had a relational database that can be used to answer our main problem.
 
@@ -157,7 +158,7 @@ By re-running our bootstrapping analysis, we can see this increased our populati
 
 The worst fitted population had smaller distances, lower parking supply, lower speeds, and lower volume. One Way streets had a significant difference, increasing the average number of tickets. Higher parking density was also a huge difference for the best streets compared to the worst. Maybe this could be because it requires them to look much harder for the residential permit, located on the bumper, for types of streets that are bumper to bumper and have higher volume. These streets tend to be on less 'residential' blocks, where no driveways exist, and would also most likely have...higher volume. So, by including parking supply I may have confirmed my initial findings, but expanded upon a deeper meaning in it.
 
-In conclusion, we can take millions of records of ticket data, pair it with street volume types, and parking density, and we can identify which streets are best to park at when trying to avoid a residential overtime ticket. The other option would be to buy a residential permit, but that's your choice.
+In conclusion, we can take millions of records of ticket data, pair it with street volume types and parking density, and we can identify which streets are best to park at when trying to avoid a residential overtime ticket. The other option would be to buy a residential permit, but that's your choice.
 
 ## Question 2:
 How long can I park without getting a ticket?
@@ -194,7 +195,7 @@ However, this study was based around the variability of arrival rates by streets
 
 Let's plot the the probability of each population segment and see there differences. Here we have to assume the arrival rate is directly proportional to how many tickets per spot are given out. Now let's only look at the average, worst, and best, and add 90% Confidence Interval bands.
 
-![Confidence Intervals](/reports/figures/analysis/CDFwCI.png)
+![Confidence Intervals](/reports/figures/analysis/park/CDFwCI.png)
 
 You can see that the variability really is much more important on the lower side. IE 1 unit lower does much more good than moving 1 unit up harms. So by selecting the right streets, you can drastically reduce your chances.
 

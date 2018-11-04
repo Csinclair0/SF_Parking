@@ -424,7 +424,9 @@ def create_address_data():
     tqdm.pandas()
     unfound['street'] = unfound.apply(lambda x: return_streetname_unknown(x['TickStreetNo'], x['TickStreetName']), axis = 1)
     unfound['address'] = unfound.apply(lambda x: str(x['TickStreetNo']) + " " + str(x['street']), axis = 1)
-    lookup = unfound.sort_values(by = 'total_tickets', ascending = False)[:500]                                             #CHANGE  TO 500
+    numlookup = 5000
+    print("There are " + str(unfound.shape[0]) + " addresses we couldn't find, we're goin to lookup " + str(numlookup))
+    lookup = unfound.sort_values(by = 'total_tickets', ascending = False)[:numlookup]                                             #CHANGE  TO 5000
     lookup['coordinates'] = lookup['address'].progress_apply(lambda x: create_locs(x + ' SAN FRANCISCO CA'))
     lookup.dropna(subset = ['coordinates'], inplace = True)
     lookup['lat'] = lookup['coordinates'].apply(lambda x: x[0])
@@ -762,8 +764,8 @@ def distancefrom(LineString, lineid, streetvolume):
     for point in [bounds_1, bounds_2]:
         if point[0] > point[2]:
             point[0], point[2] = point[2], point[0]
-        if point[1] > point[3]:
-            point[1], point[3] = point[1], point[3]
+            point[1], point[3] = point[3], point[1]
+
 
     #get total distance
     dist = 0
@@ -826,17 +828,21 @@ def process_volume():
 
 
 
-    streetsweeping.drop(columns = 'index_right', inplace = True)
+
     unfound = streetsweeping[pd.isnull(streetsweeping.lineid) | (streetsweeping.streetname_left != streetsweeping.streetname_right)]
     streetsweeping= streetsweeping[streetsweeping.streetname_left == streetsweeping.streetname_right]
     print('Sorting all merged streets by absolute distances')
     streetsweeping['distancefrom'] = streetsweeping.progress_apply(lambda x: distancefrom(x['geometry'], x['lineid'], streetvolume), axis = 1)
-    streetsweeping.drop(columns = ['streetname_right'], inplace = True)
+    streetsweeping.sort_values(by = 'distancefrom', inplace = True)
+    streetsweeping.drop(columns = ['index_right','streetname_right'], inplace = True)
     streetsweeping.rename(columns = {'streetname_left':'streetname'}, inplace = True)
-    unfound.rename(columns = {'streetname_left':'streetname'}, inplace = True)
-    unfound.drop(columns = ['streetname_right'], inplace = True)
     subset = [column for column in streetsweeping.columns if column not in ['geometry', 'lineid']]
     streetsweeping.drop_duplicates(subset = subset, inplace = True)
+
+    unfound.rename(columns = {'streetname_left':'streetname'}, inplace = True)
+    unfound.drop(columns = ['streetname_right'], inplace = True)
+
+
 
 
     print('matching unfound street sweeping links')

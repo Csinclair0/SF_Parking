@@ -334,8 +334,8 @@ def split_pop_test(streets, pops, fitted, parking, modelname, baseline = False):
         x = np.linspace(normals.ppf(0.01),
                             normals.ppf(0.99),
                             100)
-        labelstr = 'population' + str(i)
-        ax = plt.plot(x, normals.pdf(x), label = labelstr, color =  plt.cm.RdYlGn(i/10))
+        labelstr = 'Group ' + str(i)
+        ax = plt.plot(x, normals.pdf(x), label = labelstr, color =  plt.cm.RdYlGn(1-i/10))
     plt.legend( loc = 0)
     if parking == False:
         plt.xlabel('Tickets per mile per year')
@@ -453,7 +453,7 @@ def feature_analysis(streets, parking):
 
     choice = input('Would you like to bootstrap some population means based off fitted values?')
     streets['fitted'] =  res.fittedvalues
-    streets.sort_values(by = 'fitted', ascending = False, inplace = True)
+    streets.sort_values(by = 'fitted', inplace = True)
     if choice == 'Y':
         done = 'N'
         while done != "Y":
@@ -497,7 +497,7 @@ def log_feature_analysis(streets, parking):
 
 
     streets['fitted'] =  res.fittedvalues
-    streets.sort_values(by = 'fitted',ascending = False , inplace = True)
+    streets.sort_values(by = 'fitted', inplace = True)
 
     choice = input('Would you like to bootstrap some population means based off fitted values?')
     if choice == 'Y':
@@ -567,7 +567,7 @@ def final_model(streets):
     plt.tight_layout()
     plt.show()
     streets['fitted'] =  res.fittedvalues
-    streets.sort_values(by = 'fitted', ascending = False, inplace = True)
+    streets.sort_values(by = 'fitted', ascending = True, inplace = True)
     means, stds = split_pop_test(streets, 10, True,True, 'final model', baseline = True)
     print('The difference between our best and worst population means was {:.1%}'.format((1 - (means[10]/ means[1]))))
     return means, stds
