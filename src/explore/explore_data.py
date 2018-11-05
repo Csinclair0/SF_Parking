@@ -378,7 +378,7 @@ def volume_maps(ticket_data, streetvolume):
         streetvolume['totalinv_' + time]  = streetvolume['total_'+time].apply(lambda x: np.log(1/(x+.5)))
     nhoods = gpd.read_file(raw_loc + 'AnalysisNeighborhoods.geojson')
 
-    ax = streetvolume.plot(column = 'totalinv_ea', cmap = 'RdYlGn', alpha = 1)
+    ax = streetvolume.plot(column = 'totalinv_ea', cmap = 'jet', alpha = 1)
     if choice > 0:
         df = ticket_data.sample(n = choice)
         geometry = [Point(xy) for xy in zip(df.lon, df.lat)]

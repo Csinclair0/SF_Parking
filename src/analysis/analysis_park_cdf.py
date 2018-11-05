@@ -368,9 +368,9 @@ def add_confidence_intervals(arrival_rate, secondpass,  means, stds):
     for key, value in pops.items():
         val = value[0]
         color = value[1]
-        mean =  arrival_rate *  means[val] / means['base']
-        lci = arrival_rate *  (means[val] + 1.64 *stds[val]) / means['base']
-        uci = arrival_rate *  (means[val] - 1.64 * stds[val]) / means['base']
+        mean =  arrival_rate * means['base']/ means[val]
+        lci = arrival_rate *  means['base'] / (means[val] + 1.64 *stds[val])
+        uci = arrival_rate *  means['base']/ (means[val] - 1.64 * stds[val])
         x = np.random.random(size = 1000)
         firstpass_lci = [f(x, lci) for x in x]
         firstpass_mean = [f(x, mean) for x in x]

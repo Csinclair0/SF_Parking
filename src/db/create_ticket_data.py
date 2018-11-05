@@ -424,7 +424,9 @@ def create_address_data():
     tqdm.pandas()
     unfound['street'] = unfound.apply(lambda x: return_streetname_unknown(x['TickStreetNo'], x['TickStreetName']), axis = 1)
     unfound['address'] = unfound.apply(lambda x: str(x['TickStreetNo']) + " " + str(x['street']), axis = 1)
-    lookup = unfound.sort_values(by = 'total_tickets', ascending = False)[:500]                                             #CHANGE  TO 500
+    numlookup = 5000
+    print("There are " + str(unfound.shape[0]) + " addresses we couldn't find, we're goin to lookup " + str(numlookup))
+    lookup = unfound.sort_values(by = 'total_tickets', ascending = False)[:numlookup]                                             #CHANGE  TO 5000
     lookup['coordinates'] = lookup['address'].progress_apply(lambda x: create_locs(x + ' SAN FRANCISCO CA'))
     lookup.dropna(subset = ['coordinates'], inplace = True)
     lookup['lat'] = lookup['coordinates'].apply(lambda x: x[0])
@@ -737,6 +739,7 @@ def find_closest_point(point, street, streetvolume):
     return streetdf['lineid'].iloc[0]
 
 
+
 def process_volume():
     """This function will load the street volume shapefile, put it into the correct coordinate system, remove duplicates, create a new column to be used as the line id, and then insert it into our SQL database as well as save it as a new shapefile. We'll then load the street sweeping file, use a shapely join and filtering to pair it with a street volume id, and search for any lines that didnt't find a match, by using the 'find closest point' function.
 
@@ -790,15 +793,18 @@ def process_volume():
 
 
 
-    streetsweeping.drop(columns = 'index_right', inplace = True)
+
     unfound = streetsweeping[pd.isnull(streetsweeping.lineid) | (streetsweeping.streetname_left != streetsweeping.streetname_right)]
     streetsweeping= streetsweeping[streetsweeping.streetname_left == streetsweeping.streetname_right]
-    streetsweeping.drop(columns = ['streetname_right'], inplace = True)
+    streetsweeping.drop(columns = ['index_right','streetname_right'], inplace = True)
     streetsweeping.rename(columns = {'streetname_left':'streetname'}, inplace = True)
-    unfound.rename(columns = {'streetname_left':'streetname'}, inplace = True)
-    unfound.drop(columns = ['streetname_right'], inplace = True)
     subset = [column for column in streetsweeping.columns if column not in ['geometry', 'lineid']]
     streetsweeping.drop_duplicates(subset = subset, inplace = True)
+
+    unfound.rename(columns = {'streetname_left':'streetname'}, inplace = True)
+    unfound.drop(columns = ['streetname_right'], inplace = True)
+
+
 
 
     print('matching unfound street sweeping links')
@@ -853,6 +859,7 @@ def pair_address(streetsweeping, streetvolume):
     addresses = addresses[['lon', 'lat', 'number', 'street', 'address', 'streetname', 'nhood', 'lineid']]
     tqdm.pandas()
     dfstreets = streetvolume.copy()
+    print("searching for unmatched addresses")
     gdf['lineid'] = gdf.progress_apply(lambda x: find_closest_point(x['geometry'], x['street'], dfstreets), axis = 1)
     addresses = addresses.append(gdf)
     addresses = addresses[['address', 'lat', 'lon', 'lineid', 'nhood', 'number', 'street', 'streetname']]
