@@ -26,7 +26,6 @@ This source is meant to walk through the initial exploratory analysis while also
 
 ![Meters by neighborhood](/reports/figures/explore/MetbyNhood.png)
 
-
 The last sections is all maps put into HTML files, and I have not found a way for github to open HTML files as a target in a new window, so you'll have to download the files and view them yourself.
 
 
