@@ -739,41 +739,6 @@ def find_closest_point(point, street, streetvolume):
     return streetdf['lineid'].iloc[0]
 
 
-def distancefrom(LineString, lineid, streetvolume):
-    """Function is designed to get total distance between two bounds of intersecting linestrings
-
-    Parameters
-    ----------
-    LineString : geometry
-        Line of street looking for
-    lineid : int
-        id of intersecting lines
-    streetvolume : dataframe
-        streetvolume id
-
-    Returns
-    -------
-    distance
-        float of distance between all points
-
-    """
-    x = streetvolume[streetvolume.lineid == lineid]['geometry'].iloc[0]
-    bounds_1 = LineString.bounds
-    bounds_2 = x.bounds
-    #put in same direction
-    for point in [bounds_1, bounds_2]:
-        if point[0] > point[2]:
-            point[0], point[2] = point[2], point[0]
-            point[1], point[3] = point[3], point[1]
-
-
-    #get total distance
-    dist = 0
-    for i in range(0,4):
-        dist+= (bounds_1[i] -bounds_2[i])*(bounds_1[i] -bounds_2[i])
-
-    return dist
-
 
 def process_volume():
     """This function will load the street volume shapefile, put it into the correct coordinate system, remove duplicates, create a new column to be used as the line id, and then insert it into our SQL database as well as save it as a new shapefile. We'll then load the street sweeping file, use a shapely join and filtering to pair it with a street volume id, and search for any lines that didnt't find a match, by using the 'find closest point' function.
@@ -831,9 +796,6 @@ def process_volume():
 
     unfound = streetsweeping[pd.isnull(streetsweeping.lineid) | (streetsweeping.streetname_left != streetsweeping.streetname_right)]
     streetsweeping= streetsweeping[streetsweeping.streetname_left == streetsweeping.streetname_right]
-    print('Sorting all merged streets by absolute distances')
-    streetsweeping['distancefrom'] = streetsweeping.progress_apply(lambda x: distancefrom(x['geometry'], x['lineid'], streetvolume), axis = 1)
-    streetsweeping.sort_values(by = 'distancefrom', inplace = True)
     streetsweeping.drop(columns = ['index_right','streetname_right'], inplace = True)
     streetsweeping.rename(columns = {'streetname_left':'streetname'}, inplace = True)
     subset = [column for column in streetsweeping.columns if column not in ['geometry', 'lineid']]
@@ -897,6 +859,7 @@ def pair_address(streetsweeping, streetvolume):
     addresses = addresses[['lon', 'lat', 'number', 'street', 'address', 'streetname', 'nhood', 'lineid']]
     tqdm.pandas()
     dfstreets = streetvolume.copy()
+    print("searching for unmatched addresses")
     gdf['lineid'] = gdf.progress_apply(lambda x: find_closest_point(x['geometry'], x['street'], dfstreets), axis = 1)
     addresses = addresses.append(gdf)
     addresses = addresses[['address', 'lat', 'lon', 'lineid', 'nhood', 'number', 'street', 'streetname']]

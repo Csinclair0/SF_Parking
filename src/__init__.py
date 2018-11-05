@@ -40,7 +40,7 @@ def main():
         db.create_ticket_data.main()
         #db.create_street_data.main()
 
-        choice = input('Would you like to do some exploratory analyis?')
+        
 
 
 

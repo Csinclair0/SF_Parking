@@ -94,6 +94,7 @@ def create_street_data_parking():
     streets['total_ea'] = streets['total_ea'] + 1
     streets['tickpermile'] = streets['total_tickets'] / (streets['distance']) / totalyears
     streets['tickperspot'] = streets['total_tickets'] / (streets['park_supply'] / 100) / totalyears
+    streets = streets[streets.tickperspot < 6000]
     return streets
 
 
@@ -199,7 +200,7 @@ def show_street_plots(streets):
         ax.scatter(x = np.log(streets['total_ea']), y = streets['tickpermile'])
         ax.set_xlabel('Total Volume(log)')
         ax.set_ylabel('Total Tickets')
-        ax.set_title('Scatter Plot of Street Volume vs. Total Tickets per mile per mile')
+        ax.set_title('Scatter Plot of Street Volume vs. Total Tickets per mile')
         ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
         ax.set_axisbelow(True)
         ax.yaxis.grid(color='gray', linestyle='dashed', alpha = .5)
@@ -271,7 +272,7 @@ def two_pop_test(streets):
 
 
 
-def split_pop_test(streets, pops, fitted, parking, modelname, baseline = False):
+def split_pop_test(streets, pops, fitted, parking, modelname,modelsave baseline = False):
     """This function will take the street data, sort it by street volume, and bootstrap simulated data that will
 
     Parameters
@@ -347,6 +348,7 @@ def split_pop_test(streets, pops, fitted, parking, modelname, baseline = False):
         plt.title('Frequency curves of sampled street populations sorted by OLS fitted values,  ' + modelname)
     else:
         plt.title('Frequency curves of sampled street populations sorted by total volume ')
+    plt.savefig(image_loc + modelsave)
     plt.show()
 
     return means, stds
@@ -354,7 +356,7 @@ def split_pop_test(streets, pops, fitted, parking, modelname, baseline = False):
 
 
 
-def diagnostic_plots(model_fit, streets, model_name):
+def diagnostic_plots(model_fit, streets, model_name, modelsave):
     model_fitted_y = model_fit.fittedvalues
 
     # residuals
@@ -418,6 +420,7 @@ def diagnostic_plots(model_fit, streets, model_name):
     fig.suptitle('Diagnostic plots for ' + model_name)
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig.show()
+    fig.savefig(image_loc + modelsave)
     return
 
 
@@ -469,12 +472,12 @@ def feature_analysis(streets, parking):
     choice = input('Would you like to see some diagnostic plots of the model?')
     if choice == 'Y':
         if parking == True:
-            title = 'initial model with parking included'
-            imagetitle = 'initialmodelparkingdiagnostics.png'
+            title = 'base model with parking included'
+            imagetitle = 'basemodelparkingdiagnostics.png'
         else:
-            title = 'initial model'
-            imagetitle = 'intialmodeldiagnostics.png'
-        diagnostic_plots(res, streets, title)
+            title = 'base model'
+            imagetitle = 'basemodeldiagnostics.png'
+        diagnostic_plots(res, streets, title, imagetitle)
 
     return
 
@@ -515,16 +518,18 @@ def log_feature_analysis(streets, parking):
     if choice == 'Y':
         if parking == True:
             title = 'log model with parking included'
+            imagetitle = 'logmodelparkingdiagnostics.png'
         else:
             title = 'log model'
+            imagetitle = 'logmodelparkingdiagnostics.png'
             streets.drop(columns = 'fitted', inplace = True)
-        diagnostic_plots(res, streets, title)
+        diagnostic_plots(res, streets, title, imagetitle)
     return streets
 
 
 def interaction_model(streets):
 
-        columnlist = ['vvol_carea', 'vvol_trkea', 'vvol_busea', 'speed_ea', 'parkpermile', 'distance', 'oneway']
+        columns = ['vvol_carea', 'vvol_trkea', 'vvol_busea', 'speed_ea', 'parkpermile', 'distance', 'oneway']
         formulastring = 'tickperspot ~ '
 
         formulastring += '+'.join(columns)
@@ -601,7 +606,7 @@ def main():
         done = 'N'
         while count < 0 and done != "Y":
             count = int(input("How many populations would you like?"))
-            means, stds = split_pop_test(streets, count, False, False, 'volume only model')
+            means, stds = split_pop_test(streets, count, False, False, 'volume only model',  str(count) + 'PopVolSorted.png')
             print('The difference between our best and worst population means was {:.1%}'.format((1 - (means[10]/ means[1]))))
             done = input('Are you done? (Y or N)')
 
@@ -638,7 +643,7 @@ def main():
             done = 'N'
             while count < 0 and done != "Y":
                 count = int(input("How many populations would you like?"))
-                means, stds = split_pop_test(streets, count, False, True, 'volume only model w parking')
+                means, stds = split_pop_test(streets, count, False, True, 'volume only model w parking', str(count) + 'PopVolSortedParking.png')
                 print('The difference between our best and worst population means was {:.1%}'.format((1 - (means[10]/ means[1]))))
                 done = input('Are you done? (Y or N)')
 
