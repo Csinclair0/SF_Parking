@@ -16,6 +16,7 @@ import geopandas as gpd
 import seaborn as sns
 import statsmodels.api as sm
 from statsmodels.graphics.gofplots import ProbPlot
+from sklearn import preprocessing
 
 
 raw_loc = '/home/colin/Desktop/SF_Parking/data/raw/'
@@ -112,15 +113,13 @@ def show_street_map(streets):
         shows plot
 
     """
+    nhoods = gpd.read_file(raw_loc + 'AnalysisNeighborhoods.geojson')
+    base = nhoods.plot(alpha = .15, color = 'gray')
     streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
     streetvolume = streetvolume.to_crs(epsg = 4326)
-    times = ['am', 'pm', 'ev', 'ea']
-    for time in times:
-        streetvolume['totalinv_' + time]  = streetvolume['total_'+time].apply(lambda x: np.log(1/(x+.5)))
-
     df = streetvolume.merge(streets, left_on = 'lineid', right_on = 'lineid')
-
-    df.plot(figsize = (10,10), color = 'Red')
+    df['tickpermile'] = np.log(df['tickpermile'])
+    df.plot(ax = base, figsize = (10,10), cmap = 'gray', column = 'tickpermile')
     plt.title('Streets identified as Residential Overtime Areas')
     plt.savefig(image_loc + 'idstreets.png')
     plt.show()
@@ -376,7 +375,7 @@ def diagnostic_plots(model_fit, streets, model_name):
     fig, axarr = plt.subplots(2,2, figsize = (20,20))
     QQ = ProbPlot(model_norm_residuals)
 
-    #residuals
+    #residualsm
     sns.residplot( model_fitted_y, 'tickpermile', data=streets,
                               lowess=True,
                               scatter_kws={'alpha': 0.5},
@@ -524,12 +523,12 @@ def log_feature_analysis(streets, parking):
 
 def interaction_model(streets):
 
-        columnlist = ['vvol_carea', 'vvol_trkea', 'vvol_busea', 'speed_ea', 'parkpermile', 'distance', 'oneway']
+        columns = ['vvol_carea', 'vvol_trkea', 'vvol_busea', 'speed_ea', 'parkpermile', 'distance', 'oneway']
         formulastring = 'tickperspot ~ '
 
         formulastring += '+'.join(columns)
 
-        for combo in itertools.combinations(columnlist, 2):
+        for combo in itertools.combinations(columns, 2):
             formulastring += '+' + combo[0] + '*' + combo[1]
         model = sm.OLS.from_formula(formulastring , streets)
         res = model.fit()

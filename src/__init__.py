@@ -26,17 +26,17 @@ def main():
 
     """
 
-    print("")
+
     print("This program will conduct an analysis of San Francisco On Street Parking Tickets.")
     print("How much you do will depend on user input, please answer all open questions (non-numeric input) with Y or N")
-    print("")
+
     choice = input("Do you need to create the Database?")
 
 
     if choice =="Y":
-        print("")
+
         print("Importing and processing data")
-        print("")
+
         db.create_ticket_data.main()
         #db.create_street_data.main()
 
@@ -48,12 +48,12 @@ def main():
     #Explore
     choice = input("Would you like to do some exploring?")
     if choice == 'Y':
-        print("")
+
         print('Loading Data in usable form for analysis')
-        print("")
+
         ticket_data, address_data = load_data_explore()
         choice = input('Welcome to the Exploratory Section. You wanna See some charts? We got plenty')
-        print("")
+
         if choice == 'Y':
             generate_plots(ticket_data, address_data)
 
@@ -61,37 +61,37 @@ def main():
         choice = input('Would you like to look up some license plates? ')
         if choice == 'Y':
             while choice == 'Y':
-                print("")
+
                 querystring = input('What license plate?')
                 create_ticket_map(querystring, ticket_data)
-                print("")
+
                 choice = input('Would you like another?')
 
 
-        print("")
+
         choice = input('Would you like to create some heatmaps? ')
-        print("")
+
         if choice == 'Y':
             while choice == 'Y':
-                print("")
+
                 querystring = input('What would you like to filter on? (Please refer to readme for instructions)')
                 create_heatmap_query(querystring)
-                print("")
+
                 choice = input('Would you like another?')
 
         streetvolume = gpd.read_file(proc_loc + 'final_streets/SF_Street_Data.shp')
         streetvolume = streetvolume.to_crs(epsg = 4326)
-        print("")
+
         choice = input('Would you like to see a volume plot? ')
         if choice == 'Y':
             volume_maps(ticket_data, streetvolume)
 
-        print("")
+
         choice = input('Would you like to plot some tickets colored by type? ')
         if choice == 'Y':
             colored_ticket_map(ticket_data, address_data, streetvolume)
 
-        print("")
+
         print('You have made it through the Exploratory section!')
 
 
@@ -101,36 +101,36 @@ def main():
 
     #Model Creation
     choice = input('Would you like to create the model?')
-    print("")
+
     if choice == 'Y':
         print("Welcome to the initial analyis.")
-        print("")
+
         print('Loading Data into usable form')
-        print("")
+
         streets = create_street_data()
         choice = input("Would you like to see a map of all the streets we've identified as Residential Overtime Areas?")
-        print("")
+
         if choice == 'Y':
             show_street_map(streets)
             print("Compare this to the file in the report folder, titled 'sf_permit_areas.pdf'")
-            print("")
+
 
         choice = input('Would you like to see some initial charts of the street data?')
-        print("")
+
 
         if choice == 'Y':
             show_street_plots(streets)
 
         print("First, we'll look solely at total volume")
-        print("")
+
         choice = input('Would you like to test the difference between two populations?')
-        print("")
+
 
         if choice == 'Y':
             two_pop_test(streets)
 
         choice = input('Would you like to see split into more population groups, and bootstrap the decision data?')
-        print("")
+
         streets.sort_values(by = 'total_ea', inplace = True)
         if choice == "Y":
             count = -1
@@ -139,19 +139,19 @@ def main():
                 count = int(input("How many populations would you like?"))
                 means, stds = split_pop_test(streets, count, False, False, 'volume only model')
                 print('The difference between our best and worst population means was {:.1%}'.format((1 - (means[10]/ means[1]))))
-                print("")
+
                 done = input('Are you done? ')
 
 
         choice = input('Would you like to explore more features?')
-        print("")
+
         if choice == 'Y':
             print('Beginning feature analysis')
-            print("")
+
             feature_analysis(streets, False)
 
         choice = input('Would you like to log fit the features and try again?')
-        print("")
+
         if choice == 'Y':
             df = streets
             columns = ['vvol_trkea', 'vvol_carea', 'vvol_busea', 'speed_ea']
@@ -163,35 +163,35 @@ def main():
 
 
         print("We're now going to include street parking availabiliy.")
-        print("")
+
         streets = create_street_data_parking()
 
         choice = input('Would you like to see a new scatter plot including parking?')
-        print("")
+
 
         if choice == 'Y':
             show_street_plots_parking(streets)
 
         choice = input('Would you like to see split into population groups based on volume , and bootstrap the decision data?')
-        print("")
+
         streets.sort_values(by = 'total_ea', inplace = True)
         if choice == "Y":
             count = -1
             done = 'N'
             while count < 0 and done != "Y":
                 count = int(input("How many populations would you like?"))
-                print("")
+
                 means, stds = split_pop_test(streets, count, False, True, 'volume only model w parking')
                 print('The difference between our best and worst population means was {:.1%}'.format((1 - (means[10]/ means[1]))))
-                print("")
+
                 done = input('Are you done? ')
 
 
         choice = input('Would you like to explore more features?')
-        print("")
+
         if choice == 'Y':
             print('Beginning feature analysis')
-            print("")
+
             feature_analysis(streets, True)
 
         df = streets
@@ -200,23 +200,23 @@ def main():
             df[column] = df[column] + 0.01
 
         choice = input('Would you like to log fit the features and try again?')
-        print("")
+
         if choice == 'Y':
             streets = log_feature_analysis(streets, True)
 
         choice = input('Would you like to include all interaction effects in a model?')
-        print("")
+
 
         if choice == 'Y':
             interaction_model(streets)
 
         print("We're going to create the final model now")
-        print("")
+
 
         means, stds = final_model(streets)
 
         choice = input('Would you like to save the model?')
-        print("")
+
         if choice == 'Y':
             streets.to_pickle(proc_loc + 'FinalModel.pkl')
 
@@ -225,7 +225,7 @@ def main():
 
     #Parking CDF
     choice = input('Would you like to estimate how long you can park before receiving a ticket?')
-    print("")
+
     if choice == 'Y':
         print('Loading Data ')
         with open(proc_loc + 'means.pickle', 'rb') as handle:
@@ -235,17 +235,17 @@ def main():
 
         df, streetdata = load_data_cdf()
         print('Creating initial arrival probability')
-        print("")
+
         arrival_rate = create_initial_arrival_prob(df, streetdata)
 
         print('Creating second arrival probability')
-        print("")
+
         second_prob = create_return_distribution(df)
 
         secondpass = create_simulated_data(arrival_rate, second_prob)
 
         print('Lets look at the difference in populations that we fitted in our model')
-        print("")
+
 
         split_by_pop(arrival_rate, secondpass, means)
 
@@ -255,32 +255,32 @@ def main():
 
     #Street Cleaning Anlysis
     choice = input('Would you like to create some plots on street cleaning?')
-    print("")
+
     if choice == 'Y':
         print('Loading Data into form for street cleaning')
-        print("")
+
         ticks = load_data_cleaning()
         print('creating total tickets per month ')
-        print("")
+
         tick_per_month(ticks)
 
         print('creating sweep success by number of sweeps')
-        print("")
+
         sweep_per_month(ticks)
 
         print('creating sweep success by hour of day')
-        print("")
+
         sweep_by_hour(ticks)
 
         print('creating sweep success by day of week')
-        print("")
+
         by_day_of_week(ticks)
 
 
 
     #Extra Functions
     choice = input('Would you like to use one of the extra functions?')
-    print("")
+
     if choice == 'Y':
         weekdaydict = {'Mon':1,'Tues':2, 'Wed':3, 'Thurs': 4, 'Fri': 5, 'Sat':6, 'Sun': 7}
         print("Preparing all neccesary datasets")
@@ -292,20 +292,20 @@ def main():
         runagain = 'Y'
         while runagain == 'Y':
             choice = int(input('Which extra would you like to do? 1.Day animation 2.Recent Street Cleaning 3.Estimated Sweeping Time 4. Map the Route 5. Plot the generated model'))
-            print("")
+
 
             if choice ==  1:
                 datestring = input('Which date would you like to make?(format %d-%m-%Y)')
-                print("")
+
                 live_day_graph(datestring, address_data, streetvolume)
 
             elif choice == 2:
                 number = int(input('Whats the number of the address?'))
-                print("")
+
                 street = input('What is the full street (name + suffix)')
-                print("")
+
                 resOT = input('Would you like to avoid residential overtime?')
-                print("")
+
                 if resOT == 'Y':
                     resOT = True
                     invalid_ids =pd.read_sql_query('Select distinct lineid from address_data t1 join ticket_data t2 on '
@@ -318,15 +318,15 @@ def main():
 
             elif choice == 3:
                 number = int(input('Whats the number of the address?'))
-                print("")
+
                 street = input('What is the full street (name + suffix)')
-                print("")
+
                 return_conf_interval(number, street, by_route, address_data)
 
 
             elif choice == 4:
                 weekday = input('What day of week would you like to look at?(Mon,Tues, Wed, Thurs, Fri, Sat, Sun)')
-                print("")
+
                 if weekday in weekdaydict.keys():
                     weekday = weekdaydict[weekday]
                     map_the_route(weekday, by_route, streetvolume)
@@ -336,16 +336,16 @@ def main():
 
             elif choice ==5:
                 numticks = int(input('How many tickets would you like to plot?'))
-                print("")
+
                 plot_model(numticks)
 
             else:
                 runagain = input('Your entry was invalid, would you like to try again ?')
-                print("")
+
 
 
             runagain = input('Would you like to do another?')
-            print("")
+
 
 
     print('Well thats all I got for you! Thanks for exploring!')
