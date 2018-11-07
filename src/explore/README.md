@@ -26,25 +26,27 @@ This source is meant to walk through the initial exploratory analysis while also
 
 ![Meters by neighborhood](/reports/figures/explore/MetbyNhood.png)
 
+The last sections is all maps put into HTML files, and I have not found a way for github to open HTML files as a target in a new window, so you'll have to download the files and view them yourself.
+
 
 The next section will be looking up specific license plates, and plotting all of their tickets on a map. This will use folium to put markers on each ticket, and the marker will contain the ticket time and violation desc. The user will be prompted to input a license plate on their own.  See below an example using My own license plate. The file will be saved as an html file and open in browser.
 
-![My Tickets](/reports/maps/7XCS244.html)
+"My Tickets" /reports/maps/7XCS244.html
 
 The next section will allow the user to create heatmaps, given a query argument. The query argument should be in the form of what would follow a WHERE statement in SQL. Such as "VehMake == 'TSMR'"(shown below, plotting all teslas. )If you don't want to filter anything, just put '1=1'. This will also be saved in an HTML and opened in browser. Let's look at a few below.
 
-![Residential Overtime](/reports/maps/ViolationDescRESOT.html)
+"Residential Overtime " /reports/maps/ViolationDescRESOT.html
 
 This heatmap shows residential overtime tickets, and validates that our cleaning process functioned properly since only a small amount fall outside the limits of the actual residential permit ares. Below is the Tesla Plot.
 
-![Tesla Tickets](/reports/maps/VehMakeTSLA.html)
+"Tesla Tickets" /reports/maps/VehMakeTSLA.html
 
 The next option is to plot the actual street volume on a matplotlib chart, as well as all tickets. The user will be prompted to ask how many tickets they would like to add to the chart.
 
-![Volume Map](/reports/maps/VolumeMap.html)
+"Volume Map" /reports/maps/VolumeMap.html
 
 the last option is to plot tickets on the map and color and their type. The user will be allowed to input how many tickets they would like. an example is shown below.
 
-![Ticket Map](/reports/maps/ColorTicketMap.html)
+"Ticket Map" /reports/maps/ColorTicketMap.html
 
 And that is it for the exploratory section! If you didn't get enough, you'll have the ability to generate some more maps in the extras section.

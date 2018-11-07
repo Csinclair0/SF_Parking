@@ -38,9 +38,8 @@ def main():
         print("Importing and processing data")
 
         db.create_ticket_data.main()
-        #db.create_street_data.main()
 
-        choice = input('Would you like to do some exploratory analyis?')
+
 
 
 
@@ -103,7 +102,11 @@ def main():
     choice = input('Would you like to create the model?')
 
     if choice == 'Y':
+<<<<<<< HEAD
         print("Welcome to the initial analyis.")
+=======
+        print("Welcome to the model creation section.")
+>>>>>>> c65b094b8487a8bd91c57f5a210a3f180d9840f1
 
         print('Loading Data into usable form')
 
