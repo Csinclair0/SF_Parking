@@ -45,7 +45,7 @@ def create_street_data():
     streets = pd.read_sql_query("Select distinct t2.lineid, nhood, distance, total_ea, vvol_carea, vvol_trkea, vvol_busea, speed_ea, count(*) total_tickets "
                            'from ticket_data t1 join address_data t2 on t1.address = t2.address '
                            ' join street_volume_data t3 on t2.lineid = t3.lineid '
-                           " Where ViolationDesc = 'RES/OT' group by t2.lineid", conn)
+                           " Where ViolationDesc = 'RES/OT' and nhood not in ('Tenderloin', 'Financial District/South Beach') and total_ea > 0 group by t2.lineid", conn)
     c = conn.cursor()
     c.execute('Select Max(TickIssueDate), Min(TickIssueDate) from ticket_data')
     totaldays = c.fetchone()
@@ -56,6 +56,7 @@ def create_street_data():
 
     streets['total_ea'] = streets['total_ea'] + 1
     streets['tickpermile'] = streets['total_tickets'] / (streets['distance']) / totalyears
+    streets = streets[streets.tickpermile < 6000]
     return streets
 
 def create_street_data_parking():
@@ -68,10 +69,10 @@ def create_street_data_parking():
 
     """
     #Lets categorize addresses by our street volume
-    streets = pd.read_sql_query("Select distinct t3.lineid, t3.streetname, nhood, distance, total_ea, vvol_carea, vvol_trkea, vvol_busea, speed_ea, oneway, count(*) total_tickets, park_supply "
-                       'from ticket_data t1 join address_data t2 on t1.address = t2.address '
-                       ' join street_volume_data t3 on t2.lineid = t3.lineid '
-                       " Where ViolationDesc = 'RES/OT'  group by t3.lineid", conn)
+    streets = pd.read_sql_query("Select distinct t2.lineid, nhood, distance, total_ea, vvol_carea, vvol_trkea, vvol_busea, speed_ea, count(*) total_tickets "
+                           'from ticket_data t1 join address_data t2 on t1.address = t2.address '
+                           ' join street_volume_data t3 on t2.lineid = t3.lineid '
+                           " Where ViolationDesc = 'RES/OT' and nhood not in ('Tenderloin', 'Financial District/South Beach') and total_ea > 0 group by t2.lineid", conn)
     c = conn.cursor()
     c.execute('Select Max(TickIssueDate), Min(TickIssueDate) from ticket_data')
     totaldays = c.fetchone()
@@ -95,7 +96,9 @@ def create_street_data_parking():
     streets['total_ea'] = streets['total_ea'] + 1
     streets['tickpermile'] = streets['total_tickets'] / (streets['distance']) / totalyears
     streets['tickperspot'] = streets['total_tickets'] / (streets['park_supply'] / 100) / totalyears
-    streets = streets[streets.tickperspot < 6000]
+    #Lets remove some of the streets with only 1 ticket
+    streets = streets[streets.total_tickets > 1]
+    streets = streets[streets.tickperspot < 2000]
     return streets
 
 
@@ -271,7 +274,7 @@ def two_pop_test(streets):
 
 
 
-def split_pop_test(streets, pops, fitted, parking, modelname,modelsave baseline = False):
+def split_pop_test(streets, pops, fitted, parking, modelname,modelsave,  baseline = False):
     """This function will take the street data, sort it by street volume, and bootstrap simulated data that will
 
     Parameters
@@ -344,9 +347,9 @@ def split_pop_test(streets, pops, fitted, parking, modelname,modelsave baseline 
     plt.ylabel('Frequency')
 
     if fitted == True:
-        plt.title('Frequency curves of sampled street populations sorted by OLS fitted values,  ' + modelname)
+        plt.title('Distribution Curves of Simulated Decision Data Sorted by OLS Fitted Values,  ' + modelname)
     else:
-        plt.title('Frequency curves of sampled street populations sorted by total volume ')
+        plt.title('Distribution Curves of Simulated Decision Data Sorted by Total Volume ')
     plt.savefig(image_loc + modelsave)
     plt.show()
 

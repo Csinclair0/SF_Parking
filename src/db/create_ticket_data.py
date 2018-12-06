@@ -344,6 +344,8 @@ def return_streetname_unknown( streetnum, streetname):
 
 
 
+
+
 def create_address_data():
     """This is the main function that creates the address data table. The process is as follows.
 
@@ -652,6 +654,7 @@ def process_ticket_data():
         df['TickRPPlate'] = df['TickRPPlate'].apply(lambda x: 'None' if len(re.findall('[\w+]', str(x))) == 0 else str(x).replace('[^\w+]', ''))
         df['Tdelt'] = df['TickIssueTime'].apply(return_time_delta)
 
+
         df_1 = df.merge(single_address, left_on = ['TickStreetNo', 'TickStreetName'], right_on = ['number', 'streetname'])
         df_2 = df.merge(double_address, left_on = ['TickStreetNo', 'TickStreetName'], right_on = ['number', 'streetname'])
 
@@ -798,6 +801,9 @@ def process_volume():
     streetsweeping= streetsweeping[streetsweeping.streetname_left == streetsweeping.streetname_right]
     streetsweeping.drop(columns = ['index_right','streetname_right'], inplace = True)
     streetsweeping.rename(columns = {'streetname_left':'streetname'}, inplace = True)
+    #Sort by absolute distance
+    streetsweeping['distancefrom'] = streetsweeping.progress_apply(lambda x: distancefrom(x['geometry'], x['lineid']), axis = 1)
+    streetsweeping.sort_values(by = distancefrom, inplace = True)
     subset = [column for column in streetsweeping.columns if column not in ['geometry', 'lineid']]
     streetsweeping.drop_duplicates(subset = subset, inplace = True)
 
@@ -827,6 +833,25 @@ def process_volume():
 
 
 
+def distancefrom(LineString, lineid):
+    x = streetvolume[streetvolume.lineid == lineid]['geometry'].iloc[0]
+    bounds_1 = LineString.bounds
+    bounds_2 = x.bounds
+    #orient up and right
+    for point in [bounds_1, bounds_2]:
+        if point[0] > point[2]:
+            point[0], point[2] = point[2], point[0]
+            point[1], point[3] = point[3], point[1]
+
+    #get total distance
+    dist = 0
+    for i in range(0,4):
+        dist+= (bounds_1[i] -bounds_2[i])*(bounds_1[i] -bounds_2[i])
+
+    return dist
+
+
+
 def pair_address(streetsweeping, streetvolume):
     """Merge all addresses with a street cleaning link, since we can filter on their numbers. Then we can assign it to a street volume link. For any that we can't directly find, we'll us our function to locate the one closest, using coordinates and shortest distance.
 
@@ -846,8 +871,9 @@ def pair_address(streetsweeping, streetvolume):
     streetsweeping['blocknum'] = streetsweeping['lf_fadd'].apply(lambda x: math.floor(int(x) / 100))
     streetsweeping = streetsweeping[['corridor', 'blocknum', 'lineid']]
     addresses = addresses.merge(streetsweeping,  how = 'left', left_on = ['street', 'blocknum'], right_on = ['corridor', 'blocknum'])
-
     addresses.drop_duplicates(subset = ['address'], inplace = True)
+
+
     unfound = addresses[pd.isnull(addresses.lineid)]
     unfound.dropna(subset = ['lat', 'lon' ], inplace = True)
     addresses.dropna(subset = ['lineid'], inplace = True)

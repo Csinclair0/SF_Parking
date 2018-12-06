@@ -1,0 +1,33 @@
+digraph Tree {
+node [shape=box, style="filled, rounded", color="black", fontname=helvetica] ;
+edge [fontname=helvetica] ;
+0 [label=<parkpermile &le; 245.804<br/>mse = 2.584<br/>samples = 3247<br/>value = 4.115>, fillcolor="#e5813981"] ;
+1 [label=<vvol_busea &le; 1.5<br/>mse = 2.667<br/>samples = 676<br/>value = 4.705>, fillcolor="#e58139cc"] ;
+0 -> 1 [labeldistance=2.5, labelangle=45, headlabel="True"] ;
+2 [label=<parkpermile &le; 184.524<br/>mse = 2.508<br/>samples = 485<br/>value = 4.849>, fillcolor="#e58139df"] ;
+1 -> 2 ;
+3 [label=<mse = 2.357<br/>samples = 218<br/>value = 5.1>, fillcolor="#e58139ff"] ;
+2 -> 3 ;
+4 [label=<mse = 2.538<br/>samples = 267<br/>value = 4.644>, fillcolor="#e58139c4"] ;
+2 -> 4 ;
+5 [label=<mse = 2.885<br/>samples = 191<br/>value = 4.339>, fillcolor="#e581399d"] ;
+1 -> 5 ;
+6 [label=<distance &le; 0.125<br/>mse = 2.447<br/>samples = 2571<br/>value = 3.96>, fillcolor="#e581396d"] ;
+0 -> 6 [labeldistance=2.5, labelangle=-45, headlabel="False"] ;
+7 [label=<parkpermile &le; 444.95<br/>mse = 2.277<br/>samples = 2300<br/>value = 4.059>, fillcolor="#e581397a"] ;
+6 -> 7 ;
+8 [label=<distance &le; 0.038<br/>mse = 2.214<br/>samples = 2109<br/>value = 4.101>, fillcolor="#e581397f"] ;
+7 -> 8 ;
+9 [label=<mse = 2.147<br/>samples = 298<br/>value = 4.43>, fillcolor="#e58139a9"] ;
+8 -> 9 ;
+10 [label=<vvol_carea &le; 25.012<br/>mse = 2.204<br/>samples = 1811<br/>value = 4.047>, fillcolor="#e5813978"] ;
+8 -> 10 ;
+11 [label=<mse = 2.086<br/>samples = 1313<br/>value = 4.12>, fillcolor="#e5813981"] ;
+10 -> 11 ;
+12 [label=<mse = 2.464<br/>samples = 498<br/>value = 3.855>, fillcolor="#e581395f"] ;
+10 -> 12 ;
+13 [label=<mse = 2.748<br/>samples = 191<br/>value = 3.599>, fillcolor="#e581393f"] ;
+7 -> 13 ;
+14 [label=<mse = 3.083<br/>samples = 271<br/>value = 3.112>, fillcolor="#e5813900"] ;
+6 -> 14 ;
+}

@@ -98,7 +98,7 @@ def live_day_graph(datestring, address_data, streetvolume):
     df = pd.read_sql_query(sqlstring, conn)
     df = df.merge(address_data, left_on = 'address', right_on = 'address')
     df['color'] = df['ViolationDesc'].apply(lambda x: colordict.get(x, 'magenta'))
-    ax.set_title('Parking tickets on ' + datestring)
+    ax.set_title('Parking tickets in San Francisco on ' + datestring, fontdict = {'fontsize' : 25})
     geometry = [Point(xy) for xy in zip(df.lon, df.lat)]
     crs = {'init': 'epsg:4326'}
     gdf = GeoDataFrame(df, crs=crs, geometry=geometry)
@@ -112,9 +112,11 @@ def live_day_graph(datestring, address_data, streetvolume):
     gdf.sort_values(by = 'TickIssueDate', inplace = True)
     gdf['TickIssueDate'] = gdf['TickIssueDate'].apply(lambda x: dt.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
     gdf['TickIssueTime'] = gdf['TickIssueDate'].apply(lambda x: x.time().hour*60 + int(x.time().minute))
-    ttl = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center', fontsize = 12)
+    ttl = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center', fontsize = 20)
     numframes = gdf.shape[0]
     i = 0
+    plt.axis('off')
+    plt.tight_layout()
 
     def animate(i):
         if i%240 == 0 and i > 0:
@@ -317,17 +319,19 @@ def map_route_video(weekday, df, streetvolume):
     plt.rcParams["animation.html"] = "jshtml"
     plt.rcParams["animation.embed_limit"] = 100
     nhoods = gpd.read_file(raw_loc + 'AnalysisNeighborhoods.geojson')
-
+    fullday = {'Mon': 'Monday', 'Tue':'Tuesday', 'Wed': 'Wednesday', 'Thur': 'Thursday', 'Fri':'Friday', 'Sat':'Saturday', 'Sun':'Sunday'}
+    ax.set_title('San Francisco Street Cleaning on {}'.format(fullday[weekday]), fontdict = {'fontsize' : 25})
 
 
     nhoods.plot(ax = ax , alpha = .15, color = 'gray')
     # First set up the figure, the axis, and the plot element we want to animate
     streetvolume.plot(ax =ax, color = 'black', figsize = (20, 20), alpha =.25, linewidth = 1)
     df.sort_values(by = 'mins', inplace = True)
-    ttl = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center')
+    ttl = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center', fontsize = 15)
     i = 0
     df['mins'] = df['mins'].apply(lambda x: math.ceil(x))
-
+    plt.axis('off')
+    plt.tight_layout()
 
     def animate(i): ##inside function for animation
         if i%240 == 0 and i > 0:

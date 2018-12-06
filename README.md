@@ -46,14 +46,15 @@ I also found a planning neighborhood zoning map so I could associate each addres
 For traffic volume, I went to the San Francisco County Transportation Authority. They are the keepers of a model called SFCHAMP, the official travel forecasting tool for San Francisco.You can read more about the forecasting model[here](https://www.sfcta.org/modeling-and-travel-forecasting). They were able to provide me a historical travel pattern estimate from this model, in the form of a shapefile.
 
 
-While I was at it, I found the street cleaning routes from openDataSF.com, also in shapefile form.[link] (https://data.sfgov.org/City-Infrastructure/Historical-Street-Sweeper-Scheduled-Routes/u2ac-gv9v)
+While I was at it, I found the street cleaning routes from openDataSF.com, also in shapefile form.
+[link](https://data.sfgov.org/City-Infrastructure/Historical-Street-Sweeper-Scheduled-Routes/u2ac-gv9v)
 
 
 ## Data Cleaning Process
 Because of the large nature of the database, it was stored in SQLite. The finished Schema is shown below.
 ![Sql Schema](reports/figures/sqldb.png)
 
-I have made both raw and processed data available [here](https://drive.google.com/open?id=14y3puNW2SwAomM6Cox49-8NLL-B1AC8l) for download. A summary diagram of the entire process is diagrammed below. 
+I have made both raw and processed data available [here](https://drive.google.com/open?id=14y3puNW2SwAomM6Cox49-8NLL-B1AC8l) for download. A summary diagram of the entire process is diagrammed below.
 
 ![Data Work Flow](reports/figures/DataWorkFlow.png)
 
@@ -73,9 +74,7 @@ Once we had processed ticket data, we need to find a way to connect it to the st
 Once these tables were created, we now had a relational database that can be used to answer our main problem.
 
 ## Initial Exploration Findings
-(few interesting initial)
 First I did some exploratory analysis just to look for some interesting takeaways in the data, as well as ensure the data was processed properly and no major holes existed. There are quite a few graphs generated in the notebooks, so I placed them in a separate [readme file](src/explore/README.md) in the explore data older.
-
 
 ## Testing The theory
 
@@ -88,12 +87,9 @@ Now for the main event. Let's use our finished sql database to quantify the tota
 
 ![SF Streets](/reports/figures/sf_permit_areas.png)
 
-There are a few ares that don't match up perfectly, but residential areas change, and some of these could have been invalid in the pairing process of "double addresses"
+There are a few ares that don't match up perfectly, but residential areas change, and some of these could have been invalid in the pairing process of "double addresses". There are a few outliers but it works well enough for me.
 
-There are a few outliers but it works well enough for me.
-
-Then we can see if there is any significant differences between streets that have higher volumes. In order to make a 'fair' comparison by street, we'll convert the total tickets into total tickets per linear mile per year, using the distance of the street link.
-We'll create some high level plots to see if we can notice the effect we're looking for, before doing any specific tests. We'll also test the normality of our data. Both Street Volume and Total Tickets were best normalized by log-fitting the data. However, this does not eliminate that a large portion of the streets do not show any volume at all.
+Then we can see if there is any significant differences between streets that have higher volumes. We'll create some high level plots to see if we can notice the effect we're looking for, before doing any specific tests. We'll also test the normality of our data. Both Street Volume and Total Tickets were best normalized by log-fitting the data. However, this does not eliminate that a large portion of the streets do not show any volume at all, so all streets with either zero volume or only 1 ticket were removed.
 
 ![Street Normality](/reports/figures/analysis/model/streetnormality.png)
 
@@ -101,9 +97,9 @@ Let's also look at the scatter plot of total tickets vs street volume.
 
 ![Volume Scatter Plot](/reports/figures/analysis/model/volvstix.png)
 
-At first, it visually appears there is a trend declining as street volume increases. However,it is noticeable that there is still a large portion of the data that remains low, and does not follow the trend.
+At first, it visually appears there is a trend declining as street volume increases. However, it is noticeable that there is still a large portion of the data that remains low, and does not follow the trend.
 
-We'll also create a new measure,tickets per mile per year (which I'll just refer to as tickets per mile), which accounts for the total distance of the street link as well as the number of tickets. This will attempt to account for streets that are longer and will be un-bias in the amount of parking spots available. This measure also needed to be log-fit to normalize the data.  The first test will be to split the data right down the middle, into two populations. The higher volume streets and the lower volume streets. We'll compare the population means and see if there is any difference, then we'll run a paired t-test and see if the difference is significant.
+We'll also create a new measure ,tickets per mile per year (which I'll just refer to as tickets per mile), which accounts for the total distance of the street link as well as the number of tickets. This will attempt to account for streets that are longer and will be un-bias in the amount of parking spots available. This measure also needed to be log-fit to normalize the data.  The first test will be to split the data right down the middle, into two populations. The higher volume streets and the lower volume streets. We'll compare the population means and see if there is any difference, then we'll run a paired t-test and see if the difference is significant.
 
 ![Box Plot Test](/reports/figures/analysis/model/twopopbox.png)
 
@@ -111,31 +107,25 @@ The two populations don't seem to have major differences at a high level view. W
 
 Because we'd like to see if this is a practical rule of thumb we can use in every day parking, we can make use of boot strapping to create simulated results how effective using this in your decisions would be. You won't always be able to choose from 5,000 different street blocks, so we'll sample each population group and assume you can pick from 20 different streets, and you take the median of the streets sampled. By iterating this decision process a thousand times for each population group, we can create a normal curve for each population group that accurately reflects the differences in choosing from each population.
 
-We're going to split the population into into 10 populations by order of their street volume rank.  In this chart, we notice an even stronger effect in the higher populations than those of the more average. Our top 3 populations are all some of the lowest. We also notice a lower group in terms of street volume shows up with lower tickets per mile as well.  
+We're going to split the entire set into 10 populations by order of their street volume rank.  In this chart, we notice an even stronger effect in the higher populations than those of the more average. Our top 3 populations are all some of the lowest. We also notice a lower group in terms of street volume shows up with lower tickets per mile as well.  
 
 ![10 population Plot](/reports/figures/analysis/model/10PopVolSorted.png)
 
 Once we've confirmed our theory that their is a link between street volume and total tickets, we can try to fit a model that will be a little more specific. Let's see if we can include any more of the features that were available in the street volume data to create a better model. I created an Ordinary Least Squares Regression model that split out the volume into cars, trucks, and buses,as well as freeflow speed. The results showed there is a significant effect from each variable. However, it can't really describe much of the variability, with an extremely low r-squared value. It also showed buses and speed we're a little more significant of variables.
 
-![Initial Model](/reports/figures/analysis/model/initialModelFit.png)
+![Initial Model](/reports/figures/analysis/model/basemodelsum.png)
 
 But I wanted to see if using this model would actually create some tangible results. So I re-indexed the streets, but using the fitted value to set their rank. We can then re-do our simulated experiment, and see if using this model to make our decisions would actually result in choosing the correct streets. Below is the result, splitting into 10 populations, and re-doing our bootstrapping analysis.
 
-![Initial Distributions](/reports/figures/analysis/model/10popBaseModel.png)
+![Initial Distributions](/reports/figures/analysis/model/noparkingOLS.png)
 
-The results are strong! There is a clear effect that the streets we fit to receive less tickets actually do. By using this model to identify our best streets, we can reduce the average number of tickets by up to 50%!! We also notice there is much less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in identifying. Let's take a deeper dive into the details of the model, with some diagnostic plots.
-![Diagnostics](/reports/figures/analysis/model/basediagnostics.png)
-The Q-Q plot shows the relationship might not be as linear as we expected, so we'll re-run the process but using the logarithmic values of each of our variables.
-![2nd OLS Model](/reports/figures/analysis/model/logmodelfit.png)
-![Diagnostics](/reports/figures/analysis/model/logmodeldiagnostics.png)
-The resulting model had a slightly higher r-squared, indicating its a better fit. The diagnostic plots show there is still a a pattern in the residuals, however,  that we haven't completely eliminated. But it seems we have mitigated a few of our outliers. When re-running the experiment, the results seem to be pretty similar to before, with lower means and variability for the populations we look to identify.
+The results are decently strong. By using this model to identify our best streets, we can reduce the average number of tickets by up to 30% vs the baseline!! We also notice there is  less variability for the populations we predicted to have lower amounts of tickets. This is a great indicator that the predictions get more accurate when looking for the streets we are most interested in identifying.
 
-![Final OLS chart](/reports/figures/analysis/model/10popLogModel.png)
 
 ## Findings
-Although there is a significant degree of uncertainty and variability, we can create a model that will estimate the amount of residential overtime tickets per street per year, and those results will be directionally accurate. If we assume that all other factors are equal. We can reduce the amount of tickets by up to 18% by strictly parking at locations that we identify in the top 10% rather than guessing normally, and up to 37% less than if we were to choose one of the worst set of streets. The most contributing factors are freeflow speed, car volume, and bus volume.
+Although there is a significant degree of uncertainty and variability, we can create a model that will estimate the amount of residential overtime tickets per street per year, and those results will be directionally accurate. If we assume that all other factors are equal. We can reduce the amount of tickets by up to 30% by strictly parking at locations that we identify in the top 10% rather than guessing normally.
 
-However, this does not include parking spot availability. Note that bus volume is a much bigger factor than car volume. We know bus stops take up parking spots, so that is a clear correlation. I decided to run the analysis back, including parking availability data.
+However, this does not include parking spot availability. Note that bus volume is one of the factors with the highest variability. We know bus stops take up parking spots, so that could be giving a major bias towards that feature and those streets. I decided to include parking availability on a second go around.
 
 
 # Analysis With Parking Included
@@ -144,22 +134,26 @@ In order to avoid any bias when comparing the number of tickets per street I fou
 
 I used a similar pairing process as the street cleaning, using shapely joins and filtering on those that had the same street name. This just added a column to our street volume data with the parking supply quantity. Anything that didn't get a valid match(Same street name and intersection), was back filled using the average spots per mile for that respective neighborhood. This time around, we'll use the measure tickets per 100 spots per year.
 
-![Ticks Per Spot](reports/figures/analysis/model/TixPerSpot.png)
-
- I ran the exact same analysis as before, but this time it showed me that my hypothesis was actually biased on parking availability. There didn't seem to be a measurable difference this time.
-
-![Street Volume](reports/figures/analysis/model/10popVolSortedParking.png)
+![Ticks Per Spot](reports/figures/analysis/model/volvsparkspots.png)
 
 When creating a model this time, I could add parking density as a feature, and see if that had an effect. I also added the one way street identifier this time around. I then tested to see if there were any significant interaction effects, and parking density combined with distance was significant, and added accuracy to the model. The final model details are below.
 ![Final Model Details](reports/figures/analysis/model/finalModelFit.png)
 
-By re-running our bootstrapping analysis, we can see this increased our population difference from 18% up to 40% when using this new model. This model seems to be much more accurate. If we look at at a numerical description between our worst and best fitted populations, we can confirm what the model was looking for.
+By re-running our bootstrapping analysis, we can see this increased our population difference from 18% up to 40% when using this new model. This model seems to be much more accurate. If we look at a numerical description between our worst and best fitted populations, we can confirm what the model was looking for.
 
 ![Final Model](reports/figures/analysis/model/10popFinalModel.png)
 
-The worst fitted population had smaller distances, lower parking supply, lower speeds, and lower volume. One Way streets had a significant difference, increasing the average number of tickets. Higher parking density was also a huge difference for the best streets compared to the worst. Maybe this could be because it requires them to look much harder for the residential permit, located on the bumper, for types of streets that are bumper to bumper and have higher volume. These streets tend to be on less 'residential' blocks, where no driveways exist, and would also most likely have...higher volume. So, by including parking supply I may have confirmed my initial findings, but expanded upon a deeper meaning in it.
+Another thing to note is that the streets  identified as prone to having more tickets did end up having more tickets, but they also tended to have much more variability than our "best" populations to park at. This could mean that there could be some other factors not included that can drastically change this.
+
+# Conclusion
+![Comparison Table](reports/figures/analysis/model/comptable.png)
+
+The above table shows the comparison between the entire data set, and the highest and lowest 10% of fitted values (split into popoulations). In this case, the 'best' streets are those the model fitted to receive less tickets per spot, and worst have the highest. The table above shows the total data set in the first columns, and then compares the ratio of the other population means. The result, tickets per spot, shows the actual resulting difference of the population. You can see the worst identified streets had 98% more tickets per spot than on average, while the best ones had 35% less than average.
+
+The worst population had smaller distances, and lower parking supply/density, and One Way streets were much more prevalent in the worst population as well.  Maybe this could be because it requires them to look much harder for the residential permit, located on the bumper, for types of streets that are bumper to bumper parking. The best streets tended to have higher speeds and more parking density, where an officer might not want to be traveling slow to try and find them. So, I may have actually proved my theory and expanded upon it as well.
 
 In conclusion, we can take millions of records of ticket data, pair it with street volume types and parking density, and we can identify which streets are best to park at when trying to avoid a residential overtime ticket. The other option would be to buy a residential permit, but that's your choice.
+
 
 ## Question 2:
 How long can I park without getting a ticket?
