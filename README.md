@@ -130,7 +130,7 @@ However, this does not include parking spot availability. Note that bus volume i
 
 # Analysis With Parking Included
 
-In order to avoid any bias when comparing the number of tickets per street I found a street parking availability census, also in the form of a shapefile. [link] (http://sfpark.org/resources/parking-census-data-context-and-map-april-2014/)
+In order to avoid any bias when comparing the number of tickets per street I found a street parking availability census, also in the form of a shapefile. [link](http://sfpark.org/resources/parking-census-data-context-and-map-april-2014/)
 
 I used a similar pairing process as the street cleaning, using shapely joins and filtering on those that had the same street name. This just added a column to our street volume data with the parking supply quantity. Anything that didn't get a valid match(Same street name and intersection), was back filled using the average spots per mile for that respective neighborhood. This time around, we'll use the measure tickets per 100 spots per year.
 
