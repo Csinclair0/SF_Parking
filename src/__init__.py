@@ -7,8 +7,6 @@ from extras.extras import *
 import warnings
 warnings.filterwarnings('ignore')
 
-
-
 def main():
     """This is the main process of the project. Here you will go through the following process, skipping anything unwantedself.
     1.Create ticket Database
@@ -102,11 +100,11 @@ def main():
     choice = input('Would you like to create the model?')
 
     if choice == 'Y':
-<<<<<<< HEAD
+
         print("Welcome to the initial analyis.")
-=======
+
         print("Welcome to the model creation section.")
->>>>>>> c65b094b8487a8bd91c57f5a210a3f180d9840f1
+
 
         print('Loading Data into usable form')
 
